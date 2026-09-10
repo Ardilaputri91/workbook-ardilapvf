@@ -1,0 +1,3322 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teacher Workbook — Multi-Device Classroom Workspace</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- SheetJS (XLSX Parser) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Google Font: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    .sticky-col-1 {
+      position: sticky;
+      left: 0;
+      z-index: 20;
+      background-color: #ffffff;
+    }
+    .sticky-col-2 {
+      position: sticky;
+      left: 48px;
+      z-index: 20;
+      background-color: #ffffff;
+      border-right: 2px solid #e2e8f0;
+    }
+
+    .view-section {
+      display: none;
+      animation: fadeIn 0.25s ease-in-out forwards;
+    }
+    .view-section.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      body { background: white; color: black; font-size: 10pt; }
+      .sticky-col-1, .sticky-col-2 { position: static !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased flex flex-col min-h-screen">
+
+  <!-- TOP NAVIGATION HEADER -->
+  <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-50 no-print shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <!-- Brand Identity -->
+        <div class="flex items-center space-x-3">
+          <button id="mobileMenuBtn" onclick="toggleMobileSidebar()" class="lg:hidden text-slate-300 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition">
+            <i class="fa-solid fa-bars text-xl"></i>
+          </button>
+          <div class="bg-gradient-to-tr from-indigo-600 to-blue-500 p-2.5 rounded-xl shadow-lg flex items-center justify-center text-white ring-2 ring-blue-400/30">
+            <i class="fa-solid fa-book-open text-lg"></i>
+          </div>
+          <div>
+            <h1 class="text-base font-extrabold tracking-tight text-white leading-tight flex items-center gap-2">
+              TEACHER WORKBOOK
+              <span class="text-[10px] bg-indigo-500/30 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-400/30 font-medium">Cloud Edition</span>
+            </h1>
+            <p class="text-[11px] text-blue-300 font-medium hidden sm:block">Digital Teaching & Multi-Device Workspace</p>
+          </div>
+        </div>
+
+        <!-- Academic Context Indicator & Cloud Sync Status -->
+        <div class="flex items-center space-x-3">
+          <div class="hidden md:flex items-center bg-slate-800/90 px-3.5 py-1.5 rounded-xl border border-slate-700/80 text-xs shadow-inner">
+            <span class="text-slate-400 mr-2"><i class="fa-solid fa-calendar-days text-indigo-400"></i> Aktif:</span>
+            <span id="headerAcademicContext" class="font-bold text-indigo-200">2026/2027 — Ganjil</span>
+          </div>
+
+          <!-- Cloud Sync Badge -->
+          <div id="syncStatusBadge" onclick="switchView('sync')" class="cursor-pointer flex items-center space-x-2 bg-amber-500/10 border border-amber-500/30 text-amber-300 px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-amber-500/20 transition">
+            <span id="syncPulseDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+            <span id="syncStatusText">Lokal Mode</span>
+          </div>
+
+          <!-- Direct Cloud Pull / Refresh -->
+          <button onclick="syncNowWithSpreadsheet()" title="Sinkronkan dengan Google Spreadsheet" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3.5 py-2 rounded-xl font-bold transition shadow-md flex items-center space-x-1.5">
+            <i class="fa-solid fa-cloud-arrow-down text-sm"></i>
+            <span class="hidden sm:inline">Sync Cloud</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN WRAPPER -->
+  <div class="flex-1 flex max-w-7xl w-full mx-auto px-2 sm:px-4 lg:px-8 py-5 gap-6">
+
+    <!-- SIDEBAR NAVIGATION -->
+    <aside id="appSidebar" class="w-64 bg-white border border-slate-200/80 rounded-2xl shadow-sm p-4 hidden lg:block shrink-0 no-print flex flex-col justify-between self-start sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto">
+      <div class="space-y-4">
+        
+        <div>
+          <button onclick="switchView('dashboard')" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-bold text-sm text-slate-700 hover:bg-slate-100 transition active" data-view="dashboard">
+            <i class="fa-solid fa-chart-pie w-5 text-indigo-600"></i>
+            <span>Dashboard</span>
+          </button>
+        </div>
+
+        <div>
+          <div class="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Data Akademik</div>
+          <div class="space-y-0.5">
+            <button onclick="switchView('teacher')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="teacher">
+              <i class="fa-solid fa-user-tie w-5 text-slate-400"></i>
+              <span>Data Guru</span>
+            </button>
+            <button onclick="switchView('academic-year')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="academic-year">
+              <i class="fa-solid fa-calendar-check w-5 text-slate-400"></i>
+              <span>Tahun Ajaran</span>
+            </button>
+            <button onclick="switchView('classes')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="classes">
+              <i class="fa-solid fa-chalkboard w-5 text-slate-400"></i>
+              <span>Kelas & Wali Kelas</span>
+            </button>
+            <button onclick="switchView('students')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="students">
+              <i class="fa-solid fa-users w-5 text-slate-400"></i>
+              <span>Data Siswa</span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Pembelajaran</div>
+          <div class="space-y-0.5">
+            <button onclick="switchView('attendance')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="attendance">
+              <i class="fa-solid fa-clipboard-user w-5 text-slate-400"></i>
+              <span>Presensi Multi-Meeting</span>
+            </button>
+            <button onclick="switchView('journals')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="journals">
+              <i class="fa-solid fa-book-journal-whills w-5 text-slate-400"></i>
+              <span>Jurnal Pembelajaran</span>
+            </button>
+            <button onclick="switchView('groups')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="groups">
+              <i class="fa-solid fa-people-group w-5 text-slate-400"></i>
+              <span>Kelompok Siswa</span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Asesmen & Nilai</div>
+          <div class="space-y-0.5">
+            <button onclick="switchView('assessments')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="assessments">
+              <i class="fa-solid fa-file-pen w-5 text-slate-400"></i>
+              <span>Daftar Asesmen</span>
+            </button>
+            <button onclick="switchView('rubrics')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="rubrics">
+              <i class="fa-solid fa-sliders w-5 text-slate-400"></i>
+              <span>Rubric Builder</span>
+            </button>
+            <button onclick="switchView('scores')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="scores">
+              <i class="fa-solid fa-calculator w-5 text-slate-400"></i>
+              <span>Input Nilai Aspek</span>
+            </button>
+            <button onclick="switchView('score-recap')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="score-recap">
+              <i class="fa-solid fa-list-check w-5 text-slate-400"></i>
+              <span>Rekap Nilai</span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Analisis & Laporan</div>
+          <div class="space-y-0.5">
+            <button onclick="switchView('analysis')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="analysis">
+              <i class="fa-solid fa-chart-line w-5 text-slate-400"></i>
+              <span>Analisis Nilai</span>
+            </button>
+            <button onclick="switchView('remedial')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="remedial">
+              <i class="fa-solid fa-hands-holding-child w-5 text-slate-400"></i>
+              <span>Remedial & Pengayaan</span>
+            </button>
+            <button onclick="switchView('reports')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="reports">
+              <i class="fa-solid fa-print w-5 text-slate-400"></i>
+              <span>Laporan & Export</span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Pengaturan</div>
+          <div class="space-y-0.5">
+            <button onclick="switchView('sync')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="sync">
+              <i class="fa-solid fa-plug-circle-bolt w-5 text-slate-400"></i>
+              <span>Spreadsheet Sync</span>
+            </button>
+            <button onclick="switchView('settings')" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition" data-view="settings">
+              <i class="fa-solid fa-gear w-5 text-slate-400"></i>
+              <span>Pengaturan & Demo</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Teacher Quick Profile Card -->
+      <div class="mt-6 pt-3 border-t border-slate-200">
+        <div class="flex items-center space-x-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
+          <div id="sidebarTeacherAvatar" class="w-8 h-8 rounded-lg bg-indigo-600 text-white font-extrabold flex items-center justify-center text-xs shrink-0 shadow-sm">
+            TG
+          </div>
+          <div class="overflow-hidden">
+            <p id="sidebarTeacherName" class="text-xs font-bold text-slate-800 truncate">Nama Guru</p>
+            <p id="sidebarTeacherSubject" class="text-[10px] text-slate-500 truncate">Mata Pelajaran</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-1 w-full min-w-0">
+
+      <!-- VIEW 1: DASHBOARD -->
+      <section id="view-dashboard" class="view-section active space-y-6">
+        <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-8 rounded-2xl shadow-lg relative overflow-hidden border border-indigo-900/50">
+          <div class="absolute -right-10 -bottom-10 opacity-10 text-9xl pointer-events-none text-white">
+            <i class="fa-solid fa-graduation-cap"></i>
+          </div>
+          <div class="relative z-10 max-w-2xl space-y-2">
+            <span class="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 text-xs px-3 py-1 rounded-full font-bold inline-block mb-1">
+              <i class="fa-solid fa-cloud text-xs mr-1"></i> Synchronized Workspace
+            </span>
+            <h2 class="text-2xl sm:text-3xl font-black tracking-tight">Selamat Datang, <span id="dashboardTeacherName">Bapak/Ibu Guru</span></h2>
+            <p class="text-slate-300 text-xs sm:text-sm leading-relaxed">
+              Seluruh data kelas, presensi, jurnal, nilai, dan rubrik tersimpan secara cloud-connected di Google Spreadsheet Anda sehingga dapat diakses lancar dari banyak perangkat.
+            </p>
+          </div>
+        </div>
+
+        <!-- Metric Summary Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-4">
+            <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+              <i class="fa-solid fa-chalkboard-user text-xl"></i>
+            </div>
+            <div>
+              <p class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Jumlah Kelas</p>
+              <h3 id="dashStatClasses" class="text-2xl font-black text-slate-800">0</h3>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-4">
+            <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+              <i class="fa-solid fa-users text-xl"></i>
+            </div>
+            <div>
+              <p class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Total Siswa</p>
+              <h3 id="dashStatStudents" class="text-2xl font-black text-slate-800">0</h3>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-4">
+            <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
+              <i class="fa-solid fa-file-signature text-xl"></i>
+            </div>
+            <div>
+              <p class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Asesmen</p>
+              <h3 id="dashStatAssessments" class="text-2xl font-black text-slate-800">0</h3>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-4">
+            <div class="p-3 bg-amber-50 text-amber-600 rounded-xl">
+              <i class="fa-solid fa-book-journal-whills text-xl"></i>
+            </div>
+            <div>
+              <p class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Jurnal Entry</p>
+              <h3 id="dashStatJournals" class="text-2xl font-black text-slate-800">0</h3>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions Banner -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+          <h3 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center space-x-2">
+            <i class="fa-solid fa-bolt text-amber-500"></i>
+            <span>Aksi Cepat Manajemen Guru</span>
+          </h3>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            <button onclick="switchView('students')" class="p-3.5 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-300 border border-slate-200 rounded-xl text-center space-y-1.5 transition group">
+              <i class="fa-solid fa-user-plus text-indigo-600 group-hover:scale-110 transition-transform text-lg"></i>
+              <p class="text-xs font-bold text-slate-700">Tambah Siswa</p>
+            </button>
+            <button onclick="switchView('attendance')" class="p-3.5 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 border border-slate-200 rounded-xl text-center space-y-1.5 transition group">
+              <i class="fa-solid fa-clipboard-check text-emerald-600 group-hover:scale-110 transition-transform text-lg"></i>
+              <p class="text-xs font-bold text-slate-700">Grid Presensi</p>
+            </button>
+            <button onclick="switchView('journals')" class="p-3.5 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 border border-slate-200 rounded-xl text-center space-y-1.5 transition group">
+              <i class="fa-solid fa-pen-to-square text-blue-600 group-hover:scale-110 transition-transform text-lg"></i>
+              <p class="text-xs font-bold text-slate-700">Isi Jurnal</p>
+            </button>
+            <button onclick="switchView('assessments')" class="p-3.5 bg-slate-50 hover:bg-purple-50 hover:border-purple-300 border border-slate-200 rounded-xl text-center space-y-1.5 transition group">
+              <i class="fa-solid fa-plus-minus text-purple-600 group-hover:scale-110 transition-transform text-lg"></i>
+              <p class="text-xs font-bold text-slate-700">Buat Asesmen</p>
+            </button>
+            <button onclick="switchView('scores')" class="p-3.5 bg-slate-50 hover:bg-amber-50 hover:border-amber-300 border border-slate-200 rounded-xl text-center space-y-1.5 transition group">
+              <i class="fa-solid fa-keyboard text-amber-600 group-hover:scale-110 transition-transform text-lg"></i>
+              <p class="text-xs font-bold text-slate-700">Input Nilai</p>
+            </button>
+          </div>
+        </div>
+
+        <!-- Recent Activities Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Jurnal Pembelajaran Terbaru</h3>
+              <button onclick="switchView('journals')" class="text-xs text-indigo-600 hover:underline font-bold">Lihat Semua</button>
+            </div>
+            <div id="dashRecentJournalsList" class="space-y-3"></div>
+          </div>
+
+          <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Status Presensi Kelas</h3>
+              <button onclick="switchView('attendance')" class="text-xs text-indigo-600 hover:underline font-bold">Kelola Presensi</button>
+            </div>
+            <div id="dashAttendanceClassSummary" class="space-y-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: DATA GURU -->
+      <section id="view-teacher" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6 max-w-4xl">
+          <div class="border-b border-slate-200/80 pb-4 flex items-center justify-between">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-800">Profil & Data Guru</h2>
+              <p class="text-xs text-slate-500">Identitas guru ini digunakan secara dinamis di seluruh rekap dan laporan cetak.</p>
+            </div>
+            <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+              <i class="fa-solid fa-id-card text-2xl"></i>
+            </div>
+          </div>
+
+          <form id="teacherProfileForm" onsubmit="handleSaveTeacher(event)" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Nama Lengkap Guru *</label>
+                <input type="text" id="tchNama" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500" placeholder="Contoh: Drs. Ahmad Wijaya, M.Pd">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">NIP</label>
+                <input type="text" id="tchNip" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500" placeholder="19850101 201001 1 001">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">NUPTK</label>
+                <input type="text" id="tchNuptk" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500" placeholder="1234567890123456">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Mata Pelajaran Utama *</label>
+                <input type="text" id="tchMapel" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500" placeholder="Informatika / Bahasa Indonesia">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Nama Sekolah / Instansi *</label>
+                <input type="text" id="tchSekolah" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500" placeholder="SMA Negeri 1 Utama">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Email Guru</label>
+                <input type="email" id="tchEmail" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500" placeholder="guru@sekolah.sch.id">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Nomor HP / WhatsApp</label>
+                <input type="tel" id="tchHp" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500" placeholder="081234567890">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Inisial Avatar</label>
+                <input type="text" id="tchFoto" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500" placeholder="AW">
+              </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-200 flex justify-end space-x-3">
+              <button type="button" onclick="loadTeacherForm()" class="px-4 py-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50">Reset</button>
+              <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-md flex items-center space-x-2">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Simpan Profil Guru</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- VIEW 3: TAHUN AJARAN -->
+      <section id="view-academic-year" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-800">Tahun Ajaran & Semester</h2>
+              <p class="text-xs text-slate-500">Satu waktu hanya memiliki 1 Tahun Ajaran + Semester AKTIF.</p>
+            </div>
+            <button onclick="openAcademicYearModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow flex items-center space-x-2">
+              <i class="fa-solid fa-plus"></i>
+              <span>Tambah Tahun Ajaran</span>
+            </button>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-600 text-xs font-extrabold uppercase tracking-wider border-b border-slate-200">
+                  <th class="py-3 px-4">ID</th>
+                  <th class="py-3 px-4">Tahun Ajaran</th>
+                  <th class="py-3 px-4">Semester</th>
+                  <th class="py-3 px-4">Status</th>
+                  <th class="py-3 px-4 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="academicYearsTableBody" class="divide-y divide-slate-200 text-xs"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 4: KELAS & WALI KELAS -->
+      <section id="view-classes" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-800">Manajemen Kelas</h2>
+              <p class="text-xs text-slate-500">Kelola daftar kelas, wali kelas, dan fitur duplikasi kelas ke tahun ajaran baru.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="openCopyClassToNextYearModal()" class="px-3.5 py-2 bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold rounded-xl shadow flex items-center space-x-1.5">
+                <i class="fa-solid fa-copy"></i>
+                <span>Salin Ke Thn Ajaran Baru</span>
+              </button>
+              <button onclick="openClassModal()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow flex items-center space-x-1.5">
+                <i class="fa-solid fa-plus"></i>
+                <span>+ Kelas Baru</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-600 text-xs font-extrabold uppercase tracking-wider border-b border-slate-200">
+                  <th class="py-3 px-4">Class ID</th>
+                  <th class="py-3 px-4">Nama Kelas</th>
+                  <th class="py-3 px-4">Tingkat</th>
+                  <th class="py-3 px-4">Wali Kelas</th>
+                  <th class="py-3 px-4">Keterangan</th>
+                  <th class="py-3 px-4 text-center">Jumlah Siswa</th>
+                  <th class="py-3 px-4 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="classesTableBody" class="divide-y divide-slate-200 text-xs"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 5: DATA SISWA -->
+      <section id="view-students" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+          <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-800">Data Siswa Central</h2>
+              <p class="text-xs text-slate-500">Database utama siswa yang terhubung langsung ke modul Presensi & Nilai.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="openStudentModal()" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow flex items-center space-x-1.5">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>+ Siswa</span>
+              </button>
+              <button onclick="openImportModal()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow flex items-center space-x-1.5">
+                <i class="fa-solid fa-file-import"></i>
+                <span>Import Massal</span>
+              </button>
+              <button onclick="downloadStudentTemplateCSV()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-300 flex items-center space-x-1">
+                <i class="fa-solid fa-download"></i>
+                <span>Template CSV</span>
+              </button>
+              <button onclick="exportStudentsCSV()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-300 flex items-center space-x-1">
+                <i class="fa-solid fa-file-csv"></i>
+                <span>Export CSV</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Filters -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Filter Kelas</label>
+              <select id="studentClassFilter" onchange="renderStudentsTable()" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 font-semibold"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Cari Nama / NISN / NIS</label>
+              <input type="text" id="studentSearchInput" oninput="renderStudentsTable()" placeholder="Ketik kata kunci..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Filter Status</label>
+              <select id="studentStatusFilter" onchange="renderStudentsTable()" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 font-semibold">
+                <option value="ALL">Semua Status</option>
+                <option value="Aktif" selected>Aktif</option>
+                <option value="Mutasi">Mutasi</option>
+                <option value="Nonaktif">Nonaktif</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Students Table -->
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-700 text-xs font-extrabold uppercase tracking-wider border-b border-slate-200">
+                  <th class="py-3 px-3 w-12 text-center">Absen</th>
+                  <th class="py-3 px-3">Student ID</th>
+                  <th class="py-3 px-3">NISN / NIS</th>
+                  <th class="py-3 px-3">Nama Siswa</th>
+                  <th class="py-3 px-3">L/P</th>
+                  <th class="py-3 px-3">Kelas</th>
+                  <th class="py-3 px-3">Status</th>
+                  <th class="py-3 px-3 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="studentsTableBody" class="divide-y divide-slate-200 text-xs"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 6: PRESENSI MULTI-PERTEMUAN -->
+      <section id="view-attendance" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+          <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-800">Grid Presensi Multi-Pertemuan</h2>
+              <p class="text-xs text-slate-500">Daftar siswa terkunci (sticky). Klik cell presensi untuk mengganti status: H (Hadir), I (Izin), S (Sakit), A (Alpa).</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <div>
+                <select id="attendanceClassSelect" onchange="renderAttendanceGrid()" class="px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-bold bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 shadow-sm"></select>
+              </div>
+
+              <button onclick="handleAddMeeting()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow flex items-center space-x-1.5">
+                <i class="fa-solid fa-calendar-plus"></i>
+                <span>+ Pertemuan Baru</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Multi-Meeting Attendance Table Grid -->
+          <div class="relative border border-slate-200 rounded-xl overflow-hidden shadow-inner bg-slate-50 max-h-[550px] overflow-y-auto">
+            <div class="overflow-x-auto">
+              <table id="attendanceGridTable" class="w-full text-left border-collapse border-spacing-0">
+                <thead>
+                  <tr id="attendanceGridHeaderRow" class="bg-slate-200 text-slate-800 text-xs font-bold border-b border-slate-300"></tr>
+                </thead>
+                <tbody id="attendanceGridBody" class="divide-y divide-slate-200 text-xs bg-white"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Rekapitulasi Presensi Kelas -->
+          <div class="pt-4 border-t border-slate-200 space-y-4">
+            <h3 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center space-x-2">
+              <i class="fa-solid fa-chart-column text-indigo-600"></i>
+              <span>Rekapitulasi Kehadiran Kelas</span>
+            </h3>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                <span class="text-[10px] uppercase font-bold text-slate-400">Total Siswa</span>
+                <p id="attRecapTotalStudents" class="text-xl font-black text-slate-800">0</p>
+              </div>
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                <span class="text-[10px] uppercase font-bold text-slate-400">Total Pertemuan</span>
+                <p id="attRecapTotalMeetings" class="text-xl font-black text-slate-800">0</p>
+              </div>
+              <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+                <span class="text-[10px] uppercase font-bold text-emerald-600">Hadir (H)</span>
+                <p id="attRecapTotalHadir" class="text-xl font-black text-emerald-700">0</p>
+              </div>
+              <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl text-center">
+                <span class="text-[10px] uppercase font-bold text-blue-600">Izin (I)</span>
+                <p id="attRecapTotalIzin" class="text-xl font-black text-blue-700">0</p>
+              </div>
+              <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                <span class="text-[10px] uppercase font-bold text-amber-600">Sakit (S)</span>
+                <p id="attRecapTotalSakit" class="text-xl font-black text-amber-700">0</p>
+              </div>
+              <div class="p-3 bg-rose-50 border border-rose-200 rounded-xl text-center">
+                <span class="text-[10px] uppercase font-bold text-rose-600">Alpa (A)</span>
+                <p id="attRecapTotalAlpa" class="text-xl font-black text-rose-700">0</p>
+              </div>
+            </div>
+
+            <!-- Table Rekap -->
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 text-xs font-bold border-b border-slate-200">
+                    <th class="py-2.5 px-3 w-10">No</th>
+                    <th class="py-2.5 px-3">Nama Siswa</th>
+                    <th class="py-2.5 px-3 text-center text-emerald-700">H</th>
+                    <th class="py-2.5 px-3 text-center text-blue-700">I</th>
+                    <th class="py-2.5 px-3 text-center text-amber-700">S</th>
+                    <th class="py-2.5 px-3 text-center text-rose-700">A</th>
+                    <th class="py-2.5 px-3 text-center">% Kehadiran</th>
+                  </tr>
+                </thead>
+                <tbody id="attendanceRecapTableBody" class="divide-y divide-slate-200 text-xs"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- VIEW 7: JURNAL PEMBELAJARAN -->
+      <section id="view-journals" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-800">Jurnal Pembelajaran Kelas</h2>
+              <p class="text-xs text-slate-500">Catatan harian kegiatan pembelajaran, materi, tujuan, serta refleksi pengajaran.</p>
+            </div>
+            <button onclick="openJournalModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow flex items-center space-x-1.5">
+              <i class="fa-solid fa-plus"></i>
+              <span>+ Jurnal Baru</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Filter Kelas</label>
+              <select id="journalClassFilter" onchange="renderJournalsTable()" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-semibold">
+                <option value="ALL">-- Semua Kelas --</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Cari Kata Kunci Materi</label>
+              <input type="text" id="journalSearchInput" oninput="renderJournalsTable()" placeholder="Ketik kata kunci..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white">
+            </div>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-700 text-xs font-bold border-b border-slate-200">
+                  <th class="py-3 px-3">Tanggal</th>
+                  <th class="py-3 px-3">Kelas</th>
+                  <th class="py-3 px-3">Materi Pembelajaran</th>
+                  <th class="py-3 px-3">Tujuan & Metode</th>
+                  <th class="py-3 px-3">Refleksi Guru</th>
+                  <th class="py-3 px-3 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="journalsTableBody" class="divide-y divide-slate-200 text-xs"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 8: KELOMPOK SISWA -->
+      <section id="view-groups" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+          <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-800">Manajemen Kelompok Siswa</h2>
+              <p class="text-xs text-slate-500">Bagi kelompok kerja secara acak/seimbang atau manual per kelas.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="openAutoGroupModal()" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow flex items-center space-x-1.5">
+                <i class="fa-solid fa-dice"></i>
+                <span>Bagi Acak Otomatis</span>
+              </button>
+              <button onclick="openManualGroupModal()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow flex items-center space-x-1.5">
+                <i class="fa-solid fa-plus"></i>
+                <span>+ Kelompok Manual</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="w-full sm:w-64">
+              <label class="block text-xs font-bold text-slate-600 mb-1">Pilih Kelas</label>
+              <select id="groupClassFilter" onchange="renderGroupsView()" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-bold"></select>
+            </div>
+            <div id="groupUnassignedBadge" class="text-xs font-semibold text-amber-800 bg-amber-50 px-3 py-2 rounded-xl border border-amber-200">
+              Belum terbagi: <span id="groupUnassignedCount" class="font-bold">0</span> siswa
+            </div>
+          </div>
+
+          <div id="groupCardsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+      </section>
+
+      <!-- VIEW 9: ASESMEN -->
+      <section id="view-assessments" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-800">Daftar Asesmen Pembelajaran</h2>
+              <p class="text-xs text-slate-500">Buat tugas, kuis, proyek, atau ujian, dan kaitkan dengan Rubrik Penilaian.</p>
+            </div>
+            <button onclick="openAssessmentModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow flex items-center space-x-1.5">
+              <i class="fa-solid fa-plus"></i>
+              <span>+ Buat Asesmen</span>
+            </button>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-700 text-xs font-bold border-b border-slate-200">
+                  <th class="py-3 px-3">ID Asesmen</th>
+                  <th class="py-3 px-3">Nama Asesmen</th>
+                  <th class="py-3 px-3">Kategori</th>
+                  <th class="py-3 px-3">Kelas</th>
+                  <th class="py-3 px-3">Rubrik Terikat</th>
+                  <th class="py-3 px-3 text-center">Bobot (%)</th>
+                  <th class="py-3 px-3 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="assessmentsTableBody" class="divide-y divide-slate-200 text-xs"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 10: RUBRIC BUILDER -->
+      <section id="view-rubrics" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-800">Rubric Builder (Penilaian Berbasis Aspek)</h2>
+              <p class="text-xs text-slate-500">Atur bobot tiap aspek penilaian (total 100%). Aspek ini otomatis membentuk kolom input nilai.</p>
+            </div>
+            <button onclick="openRubricModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow flex items-center space-x-1.5">
+              <i class="fa-solid fa-plus"></i>
+              <span>+ Rubrik Baru</span>
+            </button>
+          </div>
+
+          <div id="rubricsCardsContainer" class="space-y-4"></div>
+        </div>
+      </section>
+
+      <!-- VIEW 11: INPUT NILAI -->
+      <section id="view-scores" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+          <div class="border-b border-slate-200/80 pb-4">
+            <h2 class="text-lg font-extrabold text-slate-800">Input Nilai Per Aspek Rubrik</h2>
+            <p class="text-xs text-slate-500">Pilih Kelas & Asesmen. Nilai terbobot dihitung otomatis secara real-time.</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">1. Pilih Kelas</label>
+              <select id="scoreClassSelect" onchange="handleScoreClassChange()" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-bold"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">2. Pilih Asesmen</label>
+              <select id="scoreAssessmentSelect" onchange="renderScoreInputGrid()" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-bold"></select>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr id="scoreGridHeaderRow" class="bg-slate-100 text-slate-700 text-xs font-bold border-b border-slate-200">
+                  <th class="py-3 px-3 w-10">No</th>
+                  <th class="py-3 px-3">Nama Siswa</th>
+                </tr>
+              </thead>
+              <tbody id="scoreGridBody" class="divide-y divide-slate-200 text-xs"></tbody>
+            </table>
+          </div>
+
+          <div class="flex justify-end pt-4">
+            <button onclick="saveAllScores()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-2">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span>Simpan Semua Nilai</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 12: REKAP NILAI -->
+      <section id="view-score-recap" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-800">Rekapitulasi Nilai Asesmen</h2>
+              <p class="text-xs text-slate-500">Matriks nilai akhir siswa seluruh asesmen pada semester aktif.</p>
+            </div>
+            <select id="recapClassSelect" onchange="renderScoreRecapTable()" class="px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-bold bg-white text-slate-800"></select>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr id="recapTableHeaderRow" class="bg-slate-100 text-slate-700 text-xs font-bold border-b border-slate-200"></tr>
+              </thead>
+              <tbody id="recapTableBody" class="divide-y divide-slate-200 text-xs"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 13: ANALISIS NILAI -->
+      <section id="view-analysis" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+          <div class="border-b border-slate-200/80 pb-4">
+            <h2 class="text-lg font-extrabold text-slate-800">Analisis Ketercapaian & Statistik Nilai</h2>
+            <p class="text-xs text-slate-500">Analisis statistik nilai rata-rata, tertinggi, terendah, serta tingkat ketuntasan KKM.</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Pilih Kelas</label>
+              <select id="analysisClassSelect" onchange="renderAnalysisView()" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-bold"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Pilih Asesmen</label>
+              <select id="analysisAssessmentSelect" onchange="renderAnalysisView()" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-bold"></select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center">
+              <span class="text-xs text-slate-500 font-bold">Rata-Rata</span>
+              <p id="anaAvg" class="text-2xl font-black text-indigo-600">0.0</p>
+            </div>
+            <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+              <span class="text-xs text-emerald-600 font-bold">Nilai Tertinggi</span>
+              <p id="anaMax" class="text-2xl font-black text-emerald-700">0</p>
+            </div>
+            <div class="p-4 bg-rose-50 border border-rose-200 rounded-xl text-center">
+              <span class="text-xs text-rose-600 font-bold">Nilai Terendah</span>
+              <p id="anaMin" class="text-2xl font-black text-rose-700">0</p>
+            </div>
+            <div class="p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-center">
+              <span class="text-xs text-indigo-600 font-bold">% Ketuntasan (KKM ≥ 75)</span>
+              <p id="anaPassRate" class="text-2xl font-black text-indigo-700">0%</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 14: REMEDIAL & PENGAYAAN -->
+      <section id="view-remedial" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-800">Tindak Lanjut Remedial & Pengayaan</h2>
+              <p class="text-xs text-slate-500">Pencatatan perbaikan nilai dan program pengayaan siswa.</p>
+            </div>
+            <button onclick="openRemedialModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow flex items-center space-x-1.5">
+              <i class="fa-solid fa-plus"></i>
+              <span>+ Catat Tindak Lanjut</span>
+            </button>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-700 text-xs font-bold border-b border-slate-200">
+                  <th class="py-3 px-3">Nama Siswa</th>
+                  <th class="py-3 px-3">Asesmen</th>
+                  <th class="py-3 px-3">Jenis</th>
+                  <th class="py-3 px-3">Nilai Awal</th>
+                  <th class="py-3 px-3">Bentuk Program</th>
+                  <th class="py-3 px-3">Nilai Akhir</th>
+                  <th class="py-3 px-3">Status</th>
+                  <th class="py-3 px-3 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="remedialTableBody" class="divide-y divide-slate-200 text-xs"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 15: LAPORAN & EXPORT -->
+      <section id="view-reports" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+          <div class="border-b border-slate-200/80 pb-4">
+            <h2 class="text-lg font-extrabold text-slate-800">Pusat Laporan & Export Data</h2>
+            <p class="text-xs text-slate-500">Unduh data siswa, presensi, dan rekap nilai dalam format CSV atau cetak dokumen.</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="p-5 border border-slate-200/80 rounded-2xl hover:border-indigo-400 transition space-y-3 bg-slate-50/50">
+              <i class="fa-solid fa-users text-3xl text-indigo-600"></i>
+              <h3 class="font-bold text-slate-800 text-sm">Laporan Data Siswa</h3>
+              <p class="text-xs text-slate-500">Seluruh identitas siswa per kelas beserta NISN/NIS.</p>
+              <button onclick="exportStudentsCSV()" class="w-full py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-300 shadow-sm">Export CSV</button>
+            </div>
+
+            <div class="p-5 border border-slate-200/80 rounded-2xl hover:border-emerald-400 transition space-y-3 bg-slate-50/50">
+              <i class="fa-solid fa-clipboard-user text-3xl text-emerald-600"></i>
+              <h3 class="font-bold text-slate-800 text-sm">Laporan Presensi</h3>
+              <p class="text-xs text-slate-500">Rekap persentase kehadiran seluruh pertemuan per siswa.</p>
+              <button onclick="exportAttendanceCSV()" class="w-full py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-300 shadow-sm">Export CSV</button>
+            </div>
+
+            <div class="p-5 border border-slate-200/80 rounded-2xl hover:border-blue-400 transition space-y-3 bg-slate-50/50">
+              <i class="fa-solid fa-calculator text-3xl text-blue-600"></i>
+              <h3 class="font-bold text-slate-800 text-sm">Laporan Rekap Nilai</h3>
+              <p class="text-xs text-slate-500">Matriks nilai akhir seluruh asesmen pembelajaran.</p>
+              <button onclick="exportScoresCSV()" class="w-full py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-300 shadow-sm">Export CSV</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 16: SPREADSHEET SYNC -->
+      <section id="view-sync" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6 max-w-4xl">
+          <div class="border-b border-slate-200/80 pb-4 flex items-center justify-between">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-800">Google Apps Script & Cloud Sync Setup</h2>
+              <p class="text-xs text-slate-500">Hubungkan aplikasi ini dengan Google Spreadsheet Anda agar dapat digunakan bersamaan dari banyak perangkat.</p>
+            </div>
+            <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+              <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Google Apps Script Web App URL</label>
+              <input type="url" id="gasWebAppUrlInput" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-500" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+              <p class="text-[11px] text-slate-500 mt-1">Tempelkan Web App URL hasil Deploy Google Apps Script di sini.</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <button onclick="handleSaveWebAppUrl()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow">Simpan URL</button>
+              <button onclick="testSpreadsheetConnection()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow flex items-center space-x-1.5">
+                <i class="fa-solid fa-plug-circle-check"></i>
+                <span>Tes Koneksi Cloud</span>
+              </button>
+              <button onclick="syncNowWithSpreadsheet()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow flex items-center space-x-1.5">
+                <i class="fa-solid fa-rotate"></i>
+                <span>Tarik Data Terbaru</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Cloud Sync Guide -->
+          <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-3">
+            <h3 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center space-x-2">
+              <i class="fa-solid fa-circle-info text-indigo-600"></i>
+              <span>Panduan Menghubungkan Banyak Perangkat</span>
+            </h3>
+            <ol class="list-decimal list-inside text-xs text-slate-600 space-y-1.5 leading-relaxed">
+              <li>Buat <strong>Google Spreadsheet baru</strong> di Google Drive Anda.</li>
+              <li>Buka menu <strong>Extensions (Ekstensi) &gt; Apps Script</strong>.</li>
+              <li>Klik tombol di bawah ini untuk melihat dan menyalin kode <code class="bg-slate-200 px-1 py-0.5 rounded text-slate-800 font-mono">Code.gs</code>.</li>
+              <li>Tempelkan di Apps Script, lalu klik <strong>Deploy &gt; New Deployment</strong>.</li>
+              <li>Pilih jenis <strong>Web App</strong>, set <em>Execute as: Me</em>, dan <em>Who has access: Anyone</em>.</li>
+              <li>Salin <strong>Web App URL</strong> dan simpan di HP/Laptop mana pun yang Anda gunakan. Data akan otomatis terhubung selamanya!</li>
+            </ol>
+            <div class="pt-2">
+              <button onclick="openAppsScriptCodeModal()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl flex items-center space-x-2 shadow">
+                <i class="fa-solid fa-code"></i>
+                <span>Lihat & Copy Kode Backend Code.gs</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 17: PENGATURAN & DEMO DATA -->
+      <section id="view-settings" class="view-section space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6 max-w-4xl">
+          <div class="border-b border-slate-200/80 pb-4">
+            <h2 class="text-lg font-extrabold text-slate-800">Pengaturan Workspace & Data Simulasi</h2>
+            <p class="text-xs text-slate-500">Kelola simulasi data sampel atau atur ulang database lokal.</p>
+          </div>
+
+          <div class="space-y-4">
+            <div class="p-4 border border-amber-200 bg-amber-50/60 rounded-2xl space-y-2">
+              <h3 class="text-xs font-extrabold text-amber-800 uppercase tracking-wider">Data Demo Simulasi</h3>
+              <p class="text-xs text-amber-700">Generate data simulasi lengkap (Guru, Kelas, Siswa, Pertemuan Presensi, Jurnal, Asesmen & Rubrik) untuk menguji seluruh fungsi secara instan.</p>
+              <div class="flex items-center space-x-3 pt-2">
+                <button onclick="handleGenerateDemoData()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow">Generate Demo Data</button>
+                <button onclick="handleClearDemoData()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow">Hapus Semua Data</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL CONTAINER 1: MASS STUDENT IMPORT -->
+  <div id="modalImportStudents" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-6 space-y-4 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <h3 class="text-base font-bold text-slate-800">Import Massal Data Siswa</h3>
+        <button onclick="closeModal('modalImportStudents')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto space-y-4 pr-1">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Pilih Kelas Tujuan *</label>
+            <select id="importTargetClass" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-bold"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Metode Import</label>
+            <select id="importMethodSelect" onchange="switchImportMethod()" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-semibold">
+              <option value="paste">Copy-Paste Tabel (Excel / Spreadsheet)</option>
+              <option value="file">Upload File CSV</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="importAreaPaste" class="space-y-2">
+          <label class="block text-xs font-bold text-slate-600">Tempel Data Tabel Di Sini (Format Kolom: No Absen, NISN, NIS, Nama Siswa, JK, Status):</label>
+          <textarea id="importPasteInput" rows="5" placeholder="1	123456789	001	Ahmad Fauzan	L	Aktif&#10;2	123456790	002	Bunga Maharani	P	Aktif" class="w-full p-3 border border-slate-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-500"></textarea>
+          <button onclick="parsePasteInput()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg">Pratinjau Data Paste</button>
+        </div>
+
+        <div id="importAreaFile" class="space-y-2 hidden">
+          <label class="block text-xs font-bold text-slate-600">Pilih File CSV:</label>
+          <input type="file" id="importFileInput" accept=".csv" onchange="handleFileUpload(event)" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs">
+        </div>
+
+        <div id="importPreviewContainer" class="hidden space-y-3 pt-2">
+          <div class="flex items-center justify-between bg-slate-100 p-3 rounded-xl border border-slate-200 text-xs">
+            <span id="importSummaryBadge" class="font-bold text-slate-700">0 Data ditemukan</span>
+            <span id="importValidationBadge" class="font-bold text-emerald-700">0 Valid</span>
+          </div>
+
+          <div class="overflow-x-auto max-h-48 border border-slate-200 rounded-xl">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-200 font-bold border-b border-slate-300">
+                  <th class="p-2">Absen</th>
+                  <th class="p-2">NISN</th>
+                  <th class="p-2">NIS</th>
+                  <th class="p-2">Nama Siswa</th>
+                  <th class="p-2">JK</th>
+                  <th class="p-2">Status</th>
+                </tr>
+              </thead>
+              <tbody id="importPreviewTableBody" class="divide-y divide-slate-200"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-slate-200 pt-3 flex justify-end space-x-3">
+        <button onclick="closeModal('modalImportStudents')" class="px-4 py-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-600">Batal</button>
+        <button id="btnConfirmImport" onclick="executeImport()" disabled class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg shadow">Import Data Valid</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONTAINER 2: CODE.GS VIEWER -->
+  <div id="modalAppsScriptCode" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-6 space-y-4 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <h3 class="text-base font-bold text-slate-800">Kode Backend Code.gs (Google Apps Script)</h3>
+        <button onclick="closeModal('modalAppsScriptCode')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+      </div>
+
+      <div class="flex-1 overflow-hidden flex flex-col space-y-2">
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-slate-500">Salin seluruh kode di bawah ini ke editor Code.gs pada Google Apps Script Anda.</span>
+          <button onclick="copyAppsScriptCode()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold flex items-center space-x-1.5 shadow">
+            <i class="fa-solid fa-copy"></i>
+            <span>Salin Kode</span>
+          </button>
+        </div>
+        <textarea id="appsScriptCodeTextarea" readonly class="w-full flex-1 p-3.5 bg-slate-900 text-emerald-400 font-mono text-xs rounded-xl overflow-y-auto resize-none"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONTAINER 3: COPY CLASS TO NEXT YEAR -->
+  <div id="modalCopyClass" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <h3 class="text-base font-bold text-slate-800">Salin Kelas Ke Tahun Ajaran Baru</h3>
+        <button onclick="closeModal('modalCopyClass')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Pilih Kelas Asal *</label>
+          <select id="copySourceClassSelect" class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white font-bold"></select>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Nama Kelas Baru *</label>
+          <input type="text" id="copyNewClassName" class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="Contoh: XI-1">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Tingkat *</label>
+          <input type="text" id="copyNewClassGrade" class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="XI">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Wali Kelas</label>
+          <input type="text" id="copyNewClassWali" class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="Nama Wali Kelas">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Pilih Tahun Ajaran Tujuan *</label>
+          <select id="copyTargetAcademicYearSelect" class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white font-bold"></select>
+        </div>
+      </div>
+      <div class="border-t border-slate-200 pt-3 flex justify-end space-x-2">
+        <button onclick="closeModal('modalCopyClass')" class="px-4 py-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-600">Batal</button>
+        <button onclick="executeCopyClassToNextYear()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow">Proses Duplikasi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="bg-white border-t border-slate-200 py-4 mt-auto no-print">
+    <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+      <p>© 2026 Teacher Workbook • Multi-Device Cloud Sync Enabled • <span id="footerTeacherName" class="font-bold text-slate-700">Drs. Ahmad Wijaya, M.Pd</span></p>
+    </div>
+  </footer>
+
+  <script>
+    /* ==========================================================================
+       APP STATE & LOCAL STORAGE DATABASE SCHEMA (SINGLE SOURCE OF TRUTH)
+       ========================================================================== */
+    const APP_STORAGE_KEY = 'TEACHER_WORKBOOK_DB_V3';
+
+    let db = {
+      teacherData: {
+        id: 'TCH-0001',
+        nama: 'Drs. Ahmad Wijaya, M.Pd',
+        nip: '19850101 201001 1 001',
+        nuptk: '1234567890123456',
+        mapel: 'Informatika',
+        sekolah: 'SMA Negeri 1 Utama',
+        email: 'ahmad.wijaya@sekolah.sch.id',
+        hp: '081234567890',
+        foto: 'AW',
+        updatedAt: new Date().toISOString()
+      },
+      academicYears: [
+        { id: 'AY-0001', tahun: '2026/2027', semester: 'Ganjil', status: 'AKTIF', updatedAt: new Date().toISOString() },
+        { id: 'AY-0002', tahun: '2026/2027', semester: 'Genap', status: 'NONAKTIF', updatedAt: new Date().toISOString() }
+      ],
+      classes: [
+        { id: 'CLS-0001', academicYearId: 'AY-0001', semester: 'Ganjil', nama: 'X-1', tingkat: 'X', waliKelas: 'Drs. Ahmad Wijaya, M.Pd', keterangan: 'Kelas Unggulan', status: 'AKTIF' },
+        { id: 'CLS-0002', academicYearId: 'AY-0001', semester: 'Ganjil', nama: 'X-2', tingkat: 'X', waliKelas: 'Siti Aminah, S.Pd', keterangan: 'Kelas Reguler', status: 'AKTIF' }
+      ],
+      students: [],
+      meetings: [],
+      attendance: [],
+      journals: [],
+      groups: [],
+      groupMembers: [],
+      assessments: [],
+      rubrics: [],
+      rubricAspects: [],
+      scores: [],
+      remedials: [],
+      settings: {
+        webAppUrl: '',
+        syncStatus: 'Local Storage',
+        lastSync: null
+      }
+    };
+
+    function saveLocalDb(autoPush = true) {
+      try {
+        localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(db));
+        updateSyncBadgeUI();
+        if (autoPush && db.settings.webAppUrl) {
+          pushLocalDataToSpreadsheet();
+        }
+      } catch (e) {
+        console.error('Storage Save Error:', e);
+      }
+    }
+
+    function loadLocalDb() {
+      try {
+        const stored = localStorage.getItem(APP_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          db = { ...db, ...parsed };
+        }
+      } catch (e) {
+        console.error('Storage Load Error:', e);
+      }
+    }
+
+    function generateId(prefix) {
+      const rand = Math.floor(1000 + Math.random() * 9000);
+      return `${prefix}-${rand}`;
+    }
+
+    function getActiveAcademicYear() {
+      const active = db.academicYears.find(a => a.status === 'AKTIF');
+      return active || { id: 'AY-0001', tahun: '2026/2027', semester: 'Ganjil' };
+    }
+
+    function updateHeaderContextUI() {
+      const activeAY = getActiveAcademicYear();
+      const headerEl = document.getElementById('headerAcademicContext');
+      if (headerEl) {
+        headerEl.textContent = `${activeAY.tahun} — ${activeAY.semester}`;
+      }
+
+      const tch = db.teacherData;
+      document.getElementById('dashboardTeacherName').textContent = tch.nama || 'Bapak/Ibu Guru';
+      document.getElementById('sidebarTeacherName').textContent = tch.nama || 'Nama Guru';
+      document.getElementById('sidebarTeacherSubject').textContent = tch.mapel || 'Mata Pelajaran';
+      document.getElementById('sidebarTeacherAvatar').textContent = tch.foto || 'TG';
+      document.getElementById('footerTeacherName').textContent = tch.nama || 'Teacher Workbook';
+    }
+
+    function updateSyncBadgeUI() {
+      const badge = document.getElementById('syncStatusBadge');
+      const text = document.getElementById('syncStatusText');
+      const dot = document.getElementById('syncPulseDot');
+      if (!badge || !text) return;
+
+      if (db.settings.syncStatus === 'Connected') {
+        badge.className = 'cursor-pointer flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-emerald-500/20 transition';
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
+        text.textContent = 'Cloud Connected';
+      } else {
+        badge.className = 'cursor-pointer flex items-center space-x-2 bg-amber-500/10 border border-amber-500/30 text-amber-300 px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-amber-500/20 transition';
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse';
+        text.textContent = 'Lokal Storage';
+      }
+    }
+
+    function toggleMobileSidebar() {
+      const sidebar = document.getElementById('appSidebar');
+      sidebar.classList.toggle('hidden');
+    }
+
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    }
+
+    function switchView(viewId) {
+      document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active', 'bg-indigo-50', 'text-indigo-700', 'font-bold'));
+
+      const targetView = document.getElementById(`view-${viewId}`);
+      if (targetView) targetView.classList.add('active');
+
+      const targetNav = document.querySelector(`.nav-item[data-view="${viewId}"]`);
+      if (targetNav) targetNav.classList.add('active', 'bg-indigo-50', 'text-indigo-700', 'font-bold');
+
+      if (viewId === 'dashboard') renderDashboardView();
+      if (viewId === 'teacher') loadTeacherForm();
+      if (viewId === 'academic-year') renderAcademicYearsTable();
+      if (viewId === 'classes') renderClassesTable();
+      if (viewId === 'students') renderStudentsTable();
+      if (viewId === 'attendance') renderAttendanceGrid();
+      if (viewId === 'journals') renderJournalsTable();
+      if (viewId === 'groups') renderGroupsView();
+      if (viewId === 'assessments') renderAssessmentsTable();
+      if (viewId === 'rubrics') renderRubricsView();
+      if (viewId === 'scores') renderScoreInputGrid();
+      if (viewId === 'score-recap') renderScoreRecapTable();
+      if (viewId === 'analysis') renderAnalysisView();
+      if (viewId === 'remedial') renderRemedialTable();
+      if (viewId === 'sync') loadSyncSettings();
+    }
+
+    /* ==========================================================================
+       1. DASHBOARD MODULE
+       ========================================================================== */
+    function renderDashboardView() {
+      const activeAY = getActiveAcademicYear();
+      const currentClasses = db.classes.filter(c => c.academicYearId === activeAY.id && c.semester === activeAY.semester);
+      
+      document.getElementById('dashStatClasses').textContent = currentClasses.length;
+      document.getElementById('dashStatStudents').textContent = db.students.length;
+      document.getElementById('dashStatAssessments').textContent = db.assessments.length;
+      document.getElementById('dashStatJournals').textContent = db.journals.length;
+
+      const journalsList = document.getElementById('dashRecentJournalsList');
+      journalsList.innerHTML = '';
+      const recentJournals = [...db.journals].sort((a,b) => new Date(b.tanggal) - new Date(a.tanggal)).slice(0,3);
+      if (recentJournals.length === 0) {
+        journalsList.innerHTML = `<p class="text-xs text-slate-400 italic py-2">Belum ada jurnal pembelajaran tersimpan.</p>`;
+      } else {
+        recentJournals.forEach(j => {
+          const cls = db.classes.find(c => c.id === j.classId);
+          journalsList.innerHTML += `
+            <div class="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1">
+              <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+                <span>${cls ? cls.nama : 'Kelas'} • ${j.tanggal}</span>
+                <span class="text-indigo-600 font-semibold">${j.metode || 'Tatap Muka'}</span>
+              </div>
+              <p class="text-xs text-slate-600 font-medium truncate">${j.materi}</p>
+            </div>
+          `;
+        });
+      }
+
+      const attSummary = document.getElementById('dashAttendanceClassSummary');
+      attSummary.innerHTML = '';
+      if (currentClasses.length === 0) {
+        attSummary.innerHTML = `<p class="text-xs text-slate-400 italic py-2">Belum ada kelas pada semester aktif.</p>`;
+      } else {
+        currentClasses.forEach(c => {
+          const classMeetings = db.meetings.filter(m => m.classId === c.id);
+          const studentCount = db.students.filter(s => s.classId === c.id && s.status === 'Aktif').length;
+          attSummary.innerHTML += `
+            <div class="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs">
+              <div>
+                <p class="font-bold text-slate-800">${c.nama} (${c.tingkat})</p>
+                <p class="text-slate-500">${studentCount} Siswa • ${classMeetings.length} Pertemuan</p>
+              </div>
+              <button onclick="switchView('attendance'); document.getElementById('attendanceClassSelect').value='${c.id}'; renderAttendanceGrid();" class="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg font-bold hover:bg-indigo-100 transition">Buka Grid</button>
+            </div>
+          `;
+        });
+      }
+    }
+
+    /* ==========================================================================
+       2. DATA GURU MODULE
+       ========================================================================== */
+    function loadTeacherForm() {
+      const tch = db.teacherData;
+      document.getElementById('tchNama').value = tch.nama || '';
+      document.getElementById('tchNip').value = tch.nip || '';
+      document.getElementById('tchNuptk').value = tch.nuptk || '';
+      document.getElementById('tchMapel').value = tch.mapel || '';
+      document.getElementById('tchSekolah').value = tch.sekolah || '';
+      document.getElementById('tchEmail').value = tch.email || '';
+      document.getElementById('tchHp').value = tch.hp || '';
+      document.getElementById('tchFoto').value = tch.foto || '';
+    }
+
+    function handleSaveTeacher(e) {
+      e.preventDefault();
+      db.teacherData = {
+        id: db.teacherData.id || 'TCH-0001',
+        nama: document.getElementById('tchNama').value,
+        nip: document.getElementById('tchNip').value,
+        nuptk: document.getElementById('tchNuptk').value,
+        mapel: document.getElementById('tchMapel').value,
+        sekolah: document.getElementById('tchSekolah').value,
+        email: document.getElementById('tchEmail').value,
+        hp: document.getElementById('tchHp').value,
+        foto: document.getElementById('tchFoto').value || 'AW',
+        updatedAt: new Date().toISOString()
+      };
+      saveLocalDb();
+      updateHeaderContextUI();
+      alert('✓ Profil guru berhasil diperbarui!');
+    }
+
+    /* ==========================================================================
+       3. TAHUN AJARAN MODULE
+       ========================================================================== */
+    function renderAcademicYearsTable() {
+      const tbody = document.getElementById('academicYearsTableBody');
+      tbody.innerHTML = '';
+      db.academicYears.forEach(ay => {
+        const isAktif = ay.status === 'AKTIF';
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3 px-4 font-mono text-xs text-slate-400">${ay.id}</td>
+            <td class="py-3 px-4 font-bold text-slate-800">${ay.tahun}</td>
+            <td class="py-3 px-4 font-semibold">${ay.semester}</td>
+            <td class="py-3 px-4">
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold ${isAktif ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-600'}">
+                ${ay.status}
+              </span>
+            </td>
+            <td class="py-3 px-4 text-right space-x-2">
+              <button onclick="editAcademicYear('${ay.id}')" class="text-indigo-600 hover:text-indigo-800 font-bold">Edit</button>
+              ${!isAktif ? `<button onclick="setAcademicYearActive('${ay.id}')" class="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-bold shadow-sm">Aktifkan</button>` : ''}
+              <button onclick="deleteAcademicYear('${ay.id}')" class="text-rose-600 hover:text-rose-800 font-bold">Hapus</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function setAcademicYearActive(id) {
+      db.academicYears.forEach(ay => {
+        ay.status = (ay.id === id) ? 'AKTIF' : 'NONAKTIF';
+      });
+      saveLocalDb();
+      updateHeaderContextUI();
+      renderAcademicYearsTable();
+    }
+
+    function openAcademicYearModal() {
+      const tahun = prompt("Masukkan Tahun Ajaran (contoh: 2027/2028):", "2027/2028");
+      if (!tahun) return;
+      const semester = prompt("Masukkan Semester (Ganjil / Genap):", "Ganjil");
+      if (!semester) return;
+
+      const newAy = {
+        id: generateId('AY'),
+        tahun: tahun.trim(),
+        semester: semester.trim(),
+        status: 'NONAKTIF',
+        updatedAt: new Date().toISOString()
+      };
+      db.academicYears.push(newAy);
+      saveLocalDb();
+      renderAcademicYearsTable();
+    }
+
+    function editAcademicYear(id) {
+      const ay = db.academicYears.find(a => a.id === id);
+      if (!ay) return;
+      const thn = prompt("Edit Tahun Ajaran:", ay.tahun);
+      if (!thn) return;
+      const sem = prompt("Edit Semester:", ay.semester);
+      if (!sem) return;
+
+      ay.tahun = thn.trim();
+      ay.semester = sem.trim();
+      ay.updatedAt = new Date().toISOString();
+      saveLocalDb();
+      renderAcademicYearsTable();
+      updateHeaderContextUI();
+    }
+
+    function deleteAcademicYear(id) {
+      if (confirm('Hapus Tahun Ajaran ini?')) {
+        db.academicYears = db.academicYears.filter(a => a.id !== id);
+        saveLocalDb();
+        renderAcademicYearsTable();
+      }
+    }
+
+    /* ==========================================================================
+       4. KELAS MODULE
+       ========================================================================== */
+    function renderClassesTable() {
+      const tbody = document.getElementById('classesTableBody');
+      tbody.innerHTML = '';
+      const activeAY = getActiveAcademicYear();
+      const currentClasses = db.classes.filter(c => c.academicYearId === activeAY.id && c.semester === activeAY.semester);
+
+      if (currentClasses.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400 italic">Belum ada kelas untuk semester aktif ini.</td></tr>`;
+        return;
+      }
+
+      currentClasses.forEach(c => {
+        const studentCount = db.students.filter(s => s.classId === c.id && s.status === 'Aktif').length;
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3 px-4 font-mono text-xs text-slate-400">${c.id}</td>
+            <td class="py-3 px-4 font-black text-slate-800">${c.nama}</td>
+            <td class="py-3 px-4 font-semibold">${c.tingkat}</td>
+            <td class="py-3 px-4 font-semibold text-indigo-700">${c.waliKelas || '-'}</td>
+            <td class="py-3 px-4 text-slate-500">${c.keterangan || '-'}</td>
+            <td class="py-3 px-4 text-center font-bold text-indigo-600">${studentCount}</td>
+            <td class="py-3 px-4 text-right space-x-2">
+              <button onclick="editClass('${c.id}')" class="text-indigo-600 hover:text-indigo-800 font-bold">Edit</button>
+              <button onclick="deleteClass('${c.id}')" class="text-rose-600 hover:text-rose-800 font-bold">Hapus</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function openClassModal() {
+      const activeAY = getActiveAcademicYear();
+      const nama = prompt("Nama Kelas Baru (contoh: XI-1):", "");
+      if (!nama) return;
+      const tingkat = prompt("Tingkat (X / XI / XII):", "X");
+      const wali = prompt("Nama Wali Kelas:", db.teacherData.nama || "");
+
+      const newClass = {
+        id: generateId('CLS'),
+        academicYearId: activeAY.id,
+        semester: activeAY.semester,
+        nama: nama.trim(),
+        tingkat: tingkat || 'X',
+        waliKelas: wali ? wali.trim() : '',
+        keterangan: 'Kelas Pembelajaran',
+        status: 'AKTIF'
+      };
+      db.classes.push(newClass);
+      saveLocalDb();
+      renderClassesTable();
+    }
+
+    function editClass(classId) {
+      const cls = db.classes.find(c => c.id === classId);
+      if (!cls) return;
+      const barunama = prompt("Edit Nama Kelas:", cls.nama);
+      if (!barunama) return;
+      const barutingkat = prompt("Edit Tingkat Kelas:", cls.tingkat);
+      const baruwali = prompt("Edit Wali Kelas:", cls.waliKelas || "");
+
+      cls.nama = barunama.trim();
+      if (barutingkat) cls.tingkat = barutingkat.trim();
+      if (baruwali !== null) cls.waliKelas = baruwali.trim();
+
+      saveLocalDb();
+      renderClassesTable();
+    }
+
+    function deleteClass(classId) {
+      if (confirm('Hapus kelas ini? Data siswa tetap tersimpan di database.')) {
+        db.classes = db.classes.filter(c => c.id !== classId);
+        saveLocalDb();
+        renderClassesTable();
+      }
+    }
+
+    function openCopyClassToNextYearModal() {
+      const sourceSelect = document.getElementById('copySourceClassSelect');
+      const targetAySelect = document.getElementById('copyTargetAcademicYearSelect');
+      
+      sourceSelect.innerHTML = '';
+      db.classes.forEach(c => {
+        const ay = db.academicYears.find(a => a.id === c.academicYearId);
+        sourceSelect.innerHTML += `<option value="${c.id}">${c.nama} (${ay ? ay.tahun : '-'})</option>`;
+      });
+
+      targetAySelect.innerHTML = '';
+      db.academicYears.forEach(ay => {
+        targetAySelect.innerHTML += `<option value="${ay.id}">${ay.tahun} — ${ay.semester}</option>`;
+      });
+
+      document.getElementById('modalCopyClass').classList.remove('hidden');
+    }
+
+    function executeCopyClassToNextYear() {
+      const sourceClassId = document.getElementById('copySourceClassSelect').value;
+      const newClassName = document.getElementById('copyNewClassName').value.trim();
+      const newClassGrade = document.getElementById('copyNewClassGrade').value.trim();
+      const newClassWali = document.getElementById('copyNewClassWali').value.trim();
+      const targetAyId = document.getElementById('copyTargetAcademicYearSelect').value;
+
+      if (!sourceClassId || !newClassName || !targetAyId) {
+        alert('Mohon lengkapi seluruh isian form!');
+        return;
+      }
+
+      const sourceClass = db.classes.find(c => c.id === sourceClassId);
+      const targetAy = db.academicYears.find(a => a.id === targetAyId);
+      if (!sourceClass || !targetAy) return;
+
+      const newClassId = generateId('CLS');
+      const newClassObj = {
+        id: newClassId,
+        academicYearId: targetAy.id,
+        semester: targetAy.semester,
+        nama: newClassName,
+        tingkat: newClassGrade || sourceClass.tingkat,
+        waliKelas: newClassWali || sourceClass.waliKelas,
+        keterangan: `Salinan dari ${sourceClass.nama}`,
+        status: 'AKTIF'
+      };
+      db.classes.push(newClassObj);
+
+      const sourceStudents = db.students.filter(s => s.classId === sourceClassId && s.status === 'Aktif');
+      let count = 0;
+      sourceStudents.forEach(s => {
+        db.students.push({
+          id: generateId('STU'),
+          classId: newClassId,
+          noAbsen: s.noAbsen,
+          nisn: s.nisn,
+          nis: s.nis,
+          nama: s.nama,
+          jk: s.jk,
+          status: 'Aktif',
+          catatan: `Lanjutan dari ${sourceClass.nama}`,
+          createdAt: new Date().toISOString()
+        });
+        count++;
+      });
+
+      saveLocalDb();
+      closeModal('modalCopyClass');
+      renderClassesTable();
+      alert(`✓ Berhasil menyalin kelas "${newClassName}" dan ${count} siswa ke Tahun Ajaran ${targetAy.tahun}!`);
+    }
+
+    /* ==========================================================================
+       5. DATA SISWA MODULE (FIXED ERROR IN editStudent & IMPORTS)
+       ========================================================================== */
+    function renderStudentsTable() {
+      const tbody = document.getElementById('studentsTableBody');
+      const classFilter = document.getElementById('studentClassFilter').value;
+      const statusFilter = document.getElementById('studentStatusFilter').value;
+      const query = document.getElementById('studentSearchInput').value.toLowerCase();
+
+      const filterSelect = document.getElementById('studentClassFilter');
+      const activeAY = getActiveAcademicYear();
+      const availableClasses = db.classes.filter(c => c.academicYearId === activeAY.id && c.semester === activeAY.semester);
+
+      filterSelect.innerHTML = `<option value="ALL">-- Semua Kelas --</option>`;
+      availableClasses.forEach(c => {
+        filterSelect.innerHTML += `<option value="${c.id}" ${classFilter === c.id ? 'selected' : ''}>${c.nama}</option>`;
+      });
+
+      let filtered = db.students;
+      if (classFilter !== 'ALL') filtered = filtered.filter(s => s.classId === classFilter);
+      if (statusFilter !== 'ALL') filtered = filtered.filter(s => s.status === statusFilter);
+      if (query) {
+        filtered = filtered.filter(s => 
+          s.nama.toLowerCase().includes(query) || 
+          (s.nisn && s.nisn.includes(query)) || 
+          (s.nis && s.nis.includes(query))
+        );
+      }
+
+      tbody.innerHTML = '';
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-slate-400 italic">Tidak ada data siswa ditemukan.</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(s => {
+        const cls = db.classes.find(c => c.id === s.classId);
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2.5 px-3 text-center font-black text-slate-700">${s.noAbsen || '-'}</td>
+            <td class="py-2.5 px-3 font-mono text-[11px] text-slate-400">${s.id}</td>
+            <td class="py-2.5 px-3 text-slate-600 font-semibold">${s.nisn || '-'}/ ${s.nis || '-'}</td>
+            <td class="py-2.5 px-3 font-bold text-slate-800">${s.nama}</td>
+            <td class="py-2.5 px-3 font-bold">${s.jk}</td>
+            <td class="py-2.5 px-3 font-bold text-indigo-600">${cls ? cls.nama : '-'}</td>
+            <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold ${s.status==='Aktif'?'bg-emerald-100 text-emerald-800':'bg-rose-100 text-rose-800'}">${s.status}</span></td>
+            <td class="py-2.5 px-3 text-right space-x-2">
+              <button onclick="editStudent('${s.id}')" class="text-indigo-600 hover:text-indigo-800 font-bold">Edit</button>
+              <button onclick="deleteStudent('${s.id}')" class="text-rose-600 hover:text-rose-800 font-bold">Hapus</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function openStudentModal() {
+      const activeAY = getActiveAcademicYear();
+      const currentClasses = db.classes.filter(c => c.academicYearId === activeAY.id && c.semester === activeAY.semester);
+      if (currentClasses.length === 0) {
+        alert('Buat Kelas terlebih dahulu pada modul Kelas & Wali Kelas.');
+        return;
+      }
+
+      const nama = prompt("Nama Lengkap Siswa:", "");
+      if (!nama) return;
+      const noAbsen = prompt("Nomor Absen:", "1");
+      const nisn = prompt("NISN:", "");
+      const nis = prompt("NIS:", "");
+
+      const newStudent = {
+        id: generateId('STU'),
+        classId: currentClasses[0].id,
+        noAbsen: parseInt(noAbsen) || 1,
+        nisn: nisn || '',
+        nis: nis || '',
+        nama: nama.trim(),
+        jk: 'L',
+        status: 'Aktif',
+        catatan: '',
+        createdAt: new Date().toISOString()
+      };
+      db.students.push(newStudent);
+      saveLocalDb();
+      renderStudentsTable();
+    }
+
+    /* Fixed completed function for Edit Student */
+    function editStudent(id) {
+      const stu = db.students.find(s => s.id === id);
+      if (!stu) return;
+
+      const barunama = prompt("Edit Nama Siswa:", stu.nama);
+      if (!barunama) return;
+      const baruAbsen = prompt("Edit Nomor Absen:", stu.noAbsen || 1);
+      const baruNisn = prompt("Edit NISN:", stu.nisn || "");
+      const baruNis = prompt("Edit NIS:", stu.nis || "");
+      const baruJk = prompt("Jenis Kelamin (L/P):", stu.jk || "L");
+
+      stu.nama = barunama.trim();
+      if (baruAbsen) stu.noAbsen = parseInt(baruAbsen) || 1;
+      if (baruNisn !== null) stu.nisn = baruNisn.trim();
+      if (baruNis !== null) stu.nis = baruNis.trim();
+      if (baruJk) stu.jk = baruJk.toUpperCase().trim();
+
+      saveLocalDb();
+      renderStudentsTable();
+    }
+
+    function deleteStudent(id) {
+      if (confirm('Hapus siswa ini dari database?')) {
+        db.students = db.students.filter(s => s.id !== id);
+        saveLocalDb();
+        renderStudentsTable();
+      }
+    }
+
+    function downloadStudentTemplateCSV() {
+      const csv = "No Absen,NISN,NIS,Nama Siswa,JK,Status\n1,1234567890,1001,Ahmad Budi,L,Aktif\n2,1234567891,1002,Siti Rahma,P,Aktif";
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", "template_siswa_import.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function exportStudentsCSV() {
+      let csv = "ID,No Absen,NISN,NIS,Nama Siswa,JK,Kelas,Status\n";
+      db.students.forEach(s => {
+        const cls = db.classes.find(c => c.id === s.classId);
+        csv += `"${s.id}","${s.noAbsen || ''}","${s.nisn || ''}","${s.nis || ''}","${s.nama}","${s.jk}","${cls ? cls.nama : ''}","${s.status}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", `data_siswa_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    /* Mass Import System */
+    let parsedImportData = [];
+
+    function openImportModal() {
+      const activeAY = getActiveAcademicYear();
+      const currentClasses = db.classes.filter(c => c.academicYearId === activeAY.id && c.semester === activeAY.semester);
+      
+      const targetSelect = document.getElementById('importTargetClass');
+      targetSelect.innerHTML = '';
+      currentClasses.forEach(c => {
+        targetSelect.innerHTML += `<option value="${c.id}">${c.nama}</option>`;
+      });
+
+      document.getElementById('modalImportStudents').classList.remove('hidden');
+    }
+
+    function switchImportMethod() {
+      const method = document.getElementById('importMethodSelect').value;
+      if (method === 'paste') {
+        document.getElementById('importAreaPaste').classList.remove('hidden');
+        document.getElementById('importAreaFile').classList.add('hidden');
+      } else {
+        document.getElementById('importAreaPaste').classList.add('hidden');
+        document.getElementById('importAreaFile').classList.remove('hidden');
+      }
+    }
+
+    function parsePasteInput() {
+      const raw = document.getElementById('importPasteInput').value.trim();
+      if (!raw) return;
+
+      const lines = raw.split('\n');
+      parsedImportData = [];
+      const tbody = document.getElementById('importPreviewTableBody');
+      tbody.innerHTML = '';
+
+      lines.forEach(line => {
+        const cols = line.split('\t').map(c => c.trim());
+        if (cols.length >= 4) {
+          const item = {
+            noAbsen: parseInt(cols[0]) || 1,
+            nisn: cols[1] || '',
+            nis: cols[2] || '',
+            nama: cols[3] || '',
+            jk: (cols[4] || 'L').toUpperCase(),
+            status: cols[5] || 'Aktif'
+          };
+          if (item.nama) {
+            parsedImportData.push(item);
+            tbody.innerHTML += `
+              <tr class="hover:bg-slate-50">
+                <td class="p-2 text-center font-bold">${item.noAbsen}</td>
+                <td class="p-2">${item.nisn}</td>
+                <td class="p-2">${item.nis}</td>
+                <td class="p-2 font-bold">${item.nama}</td>
+                <td class="p-2 text-center">${item.jk}</td>
+                <td class="p-2">${item.status}</td>
+              </tr>
+            `;
+          }
+        }
+      });
+
+      document.getElementById('importSummaryBadge').textContent = `${parsedImportData.length} data ditemukan`;
+      document.getElementById('importValidationBadge').textContent = `${parsedImportData.length} valid`;
+      document.getElementById('importPreviewContainer').classList.remove('hidden');
+      document.getElementById('btnConfirmImport').disabled = parsedImportData.length === 0;
+    }
+
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const text = evt.target.result;
+        const lines = text.split('\n');
+        parsedImportData = [];
+        const tbody = document.getElementById('importPreviewTableBody');
+        tbody.innerHTML = '';
+
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => c.replace(/"/g, '').trim());
+          if (cols.length >= 4 && cols[3]) {
+            const item = {
+              noAbsen: parseInt(cols[0]) || i,
+              nisn: cols[1] || '',
+              nis: cols[2] || '',
+              nama: cols[3] || '',
+              jk: (cols[4] || 'L').toUpperCase(),
+              status: cols[5] || 'Aktif'
+            };
+            parsedImportData.push(item);
+            tbody.innerHTML += `
+              <tr class="hover:bg-slate-50">
+                <td class="p-2 text-center font-bold">${item.noAbsen}</td>
+                <td class="p-2">${item.nisn}</td>
+                <td class="p-2">${item.nis}</td>
+                <td class="p-2 font-bold">${item.nama}</td>
+                <td class="p-2 text-center">${item.jk}</td>
+                <td class="p-2">${item.status}</td>
+              </tr>
+            `;
+          }
+        }
+
+        document.getElementById('importSummaryBadge').textContent = `${parsedImportData.length} data ditemukan`;
+        document.getElementById('importValidationBadge').textContent = `${parsedImportData.length} valid`;
+        document.getElementById('importPreviewContainer').classList.remove('hidden');
+        document.getElementById('btnConfirmImport').disabled = parsedImportData.length === 0;
+      };
+      reader.readAsText(file);
+    }
+
+    function executeImport() {
+      const targetClassId = document.getElementById('importTargetClass').value;
+      if (!targetClassId || parsedImportData.length === 0) return;
+
+      let added = 0;
+      parsedImportData.forEach(item => {
+        db.students.push({
+          id: generateId('STU'),
+          classId: targetClassId,
+          noAbsen: item.noAbsen,
+          nisn: item.nisn,
+          nis: item.nis,
+          nama: item.nama,
+          jk: item.jk,
+          status: item.status,
+          createdAt: new Date().toISOString()
+        });
+        added++;
+      });
+
+      saveLocalDb();
+      closeModal('modalImportStudents');
+      renderStudentsTable();
+      alert(`✓ Berhasil mengimport ${added} data siswa!`);
+    }
+
+    /* ==========================================================================
+       6. PRESENSI MULTI-PERTEMUAN MODULE
+       ========================================================================== */
+    function renderAttendanceGrid() {
+      const activeAY = getActiveAcademicYear();
+      const availableClasses = db.classes.filter(c => c.academicYearId === activeAY.id && c.semester === activeAY.semester);
+      const classSelect = document.getElementById('attendanceClassSelect');
+
+      if (availableClasses.length === 0) {
+        classSelect.innerHTML = `<option value="">Belum ada kelas</option>`;
+        return;
+      }
+
+      if (!classSelect.value || !availableClasses.some(c => c.id === classSelect.value)) {
+        classSelect.innerHTML = '';
+        availableClasses.forEach(c => {
+          classSelect.innerHTML += `<option value="${c.id}">${c.nama} (${c.tingkat})</option>`;
+        });
+      }
+
+      const selectedClassId = classSelect.value;
+      const classStudents = db.students.filter(s => s.classId === selectedClassId && s.status === 'Aktif')
+                                      .sort((a,b) => (a.noAbsen || 0) - (b.noAbsen || 0));
+      const classMeetings = db.meetings.filter(m => m.classId === selectedClassId)
+                                      .sort((a,b) => new Date(a.tanggal) - new Date(b.tanggal));
+
+      // Header Row
+      const headerRow = document.getElementById('attendanceGridHeaderRow');
+      headerRow.innerHTML = `
+        <th class="py-3 px-3 w-12 text-center sticky-col-1 border-r border-slate-300">No</th>
+        <th class="py-3 px-3 min-w-[180px] sticky-col-2 border-r border-slate-300">Nama Siswa</th>
+      `;
+
+      classMeetings.forEach(m => {
+        headerRow.innerHTML += `
+          <th class="py-2.5 px-3 text-center border-r border-slate-300 min-w-[70px]">
+            <div class="text-[11px] font-extrabold text-indigo-700">${m.tanggal}</div>
+            <div class="text-[10px] text-slate-500 font-normal">P-${m.pertemuanKe}</div>
+            <button onclick="deleteMeeting('${m.id}')" class="text-rose-500 hover:text-rose-700 text-[10px] mt-0.5"><i class="fa-solid fa-trash"></i></button>
+          </th>
+        `;
+      });
+
+      // Body Rows
+      const tbody = document.getElementById('attendanceGridBody');
+      tbody.innerHTML = '';
+
+      if (classStudents.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${2 + classMeetings.length}" class="py-6 text-center text-slate-400 italic">Tidak ada siswa aktif di kelas ini.</td></tr>`;
+      } else {
+        classStudents.forEach(s => {
+          let rowHtml = `
+            <tr class="hover:bg-slate-50">
+              <td class="py-2.5 px-3 text-center font-bold text-slate-700 sticky-col-1 border-r border-slate-200">${s.noAbsen || '-'}</td>
+              <td class="py-2.5 px-3 font-bold text-slate-800 sticky-col-2 border-r border-slate-200 truncate max-w-[180px]">${s.nama}</td>
+          `;
+
+          classMeetings.forEach(m => {
+            const attRec = db.attendance.find(a => a.meetingId === m.id && a.studentId === s.id);
+            const status = attRec ? attRec.status : 'H';
+            let badgeStyle = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+            if (status === 'I') badgeStyle = 'bg-blue-100 text-blue-800 border-blue-300';
+            if (status === 'S') badgeStyle = 'bg-amber-100 text-amber-800 border-amber-300';
+            if (status === 'A') badgeStyle = 'bg-rose-100 text-rose-800 border-rose-300';
+
+            rowHtml += `
+              <td class="py-2 px-2 text-center border-r border-slate-200">
+                <button onclick="toggleAttendanceStatus('${m.id}', '${s.id}', '${status}')" class="w-8 h-8 rounded-lg font-black text-xs border shadow-sm transition hover:scale-105 ${badgeStyle}">
+                  ${status}
+                </button>
+              </td>
+            `;
+          });
+
+          rowHtml += `</tr>`;
+          tbody.innerHTML += rowHtml;
+        });
+      }
+
+      calculateAttendanceRecap(selectedClassId, classStudents, classMeetings);
+    }
+
+    function handleAddMeeting() {
+      const classId = document.getElementById('attendanceClassSelect').value;
+      if (!classId) return;
+
+      const tgl = prompt("Tanggal Pertemuan (YYYY-MM-DD):", new Date().toISOString().slice(0,10));
+      if (!tgl) return;
+      const classMeetings = db.meetings.filter(m => m.classId === classId);
+
+      const newMeeting = {
+        id: generateId('MTG'),
+        classId: classId,
+        pertemuanKe: classMeetings.length + 1,
+        tanggal: tgl,
+        materiSingkat: 'Pertemuan Presensi',
+        createdAt: new Date().toISOString()
+      };
+      db.meetings.push(newMeeting);
+
+      // Default all students to Hadir
+      const classStudents = db.students.filter(s => s.classId === classId && s.status === 'Aktif');
+      classStudents.forEach(s => {
+        db.attendance.push({
+          id: generateId('ATT'),
+          meetingId: newMeeting.id,
+          studentId: s.id,
+          status: 'H',
+          catatan: ''
+        });
+      });
+
+      saveLocalDb();
+      renderAttendanceGrid();
+    }
+
+    function toggleAttendanceStatus(meetingId, studentId, currentStatus) {
+      const statuses = ['H', 'I', 'S', 'A'];
+      const nextIdx = (statuses.indexOf(currentStatus) + 1) % statuses.length;
+      const nextStatus = statuses[nextIdx];
+
+      let att = db.attendance.find(a => a.meetingId === meetingId && a.studentId === studentId);
+      if (att) {
+        att.status = nextStatus;
+      } else {
+        db.attendance.push({
+          id: generateId('ATT'),
+          meetingId: meetingId,
+          studentId: studentId,
+          status: nextStatus,
+          catatan: ''
+        });
+      }
+
+      saveLocalDb();
+      renderAttendanceGrid();
+    }
+
+    function deleteMeeting(meetingId) {
+      if (confirm('Hapus kolom pertemuan ini?')) {
+        db.meetings = db.meetings.filter(m => m.id !== meetingId);
+        db.attendance = db.attendance.filter(a => a.meetingId !== meetingId);
+        saveLocalDb();
+        renderAttendanceGrid();
+      }
+    }
+
+    function calculateAttendanceRecap(classId, students, meetings) {
+      document.getElementById('attRecapTotalStudents').textContent = students.length;
+      document.getElementById('attRecapTotalMeetings').textContent = meetings.length;
+
+      let totalH = 0, totalI = 0, totalS = 0, totalA = 0;
+      const tbody = document.getElementById('attendanceRecapTableBody');
+      tbody.innerHTML = '';
+
+      students.forEach((s, idx) => {
+        let h = 0, i = 0, st = 0, a = 0;
+        meetings.forEach(m => {
+          const rec = db.attendance.find(att => att.meetingId === m.id && att.studentId === s.id);
+          const stat = rec ? rec.status : 'H';
+          if (stat === 'H') h++;
+          if (stat === 'I') i++;
+          if (stat === 'S') st++;
+          if (stat === 'A') a++;
+        });
+
+        totalH += h; totalI += i; totalS += st; totalA += a;
+        const pct = meetings.length > 0 ? Math.round((h / meetings.length) * 100) : 100;
+
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2.5 px-3 text-center font-bold text-slate-500">${idx + 1}</td>
+            <td class="py-2.5 px-3 font-bold text-slate-800">${s.nama}</td>
+            <td class="py-2.5 px-3 text-center font-bold text-emerald-700">${h}</td>
+            <td class="py-2.5 px-3 text-center font-bold text-blue-700">${i}</td>
+            <td class="py-2.5 px-3 text-center font-bold text-amber-700">${st}</td>
+            <td class="py-2.5 px-3 text-center font-bold text-rose-700">${a}</td>
+            <td class="py-2.5 px-3 text-center font-black ${pct >= 85 ? 'text-emerald-600' : 'text-rose-600'}">${pct}%</td>
+          </tr>
+        `;
+      });
+
+      document.getElementById('attRecapTotalHadir').textContent = totalH;
+      document.getElementById('attRecapTotalIzin').textContent = totalI;
+      document.getElementById('attRecapTotalSakit').textContent = totalS;
+      document.getElementById('attRecapTotalAlpa').textContent = totalA;
+    }
+
+    function exportAttendanceCSV() {
+      let csv = "Nama Siswa,Total Pertemuan,Hadir,Izin,Sakit,Alpa,Persentase Kehadiran\n";
+      const classId = document.getElementById('attendanceClassSelect').value;
+      const classStudents = db.students.filter(s => s.classId === classId && s.status === 'Aktif');
+      const classMeetings = db.meetings.filter(m => m.classId === classId);
+
+      classStudents.forEach(s => {
+        let h = 0, i = 0, st = 0, a = 0;
+        classMeetings.forEach(m => {
+          const rec = db.attendance.find(att => att.meetingId === m.id && att.studentId === s.id);
+          const stat = rec ? rec.status : 'H';
+          if (stat === 'H') h++;
+          if (stat === 'I') i++;
+          if (stat === 'S') st++;
+          if (stat === 'A') a++;
+        });
+        const pct = classMeetings.length > 0 ? Math.round((h / classMeetings.length) * 100) : 100;
+        csv += `"${s.nama}","${classMeetings.length}","${h}","${i}","${st}","${a}","${pct}%"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", `rekap_presensi_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    /* ==========================================================================
+       7. JURNAL PEMBELAJARAN MODULE
+       ========================================================================== */
+    function renderJournalsTable() {
+      const tbody = document.getElementById('journalsTableBody');
+      const classFilter = document.getElementById('journalClassFilter').value;
+      const query = document.getElementById('journalSearchInput').value.toLowerCase();
+
+      const filterSelect = document.getElementById('journalClassFilter');
+      const activeAY = getActiveAcademicYear();
+      const availableClasses = db.classes.filter(c => c.academicYearId === activeAY.id && c.semester === activeAY.semester);
+
+      filterSelect.innerHTML = `<option value="ALL">-- Semua Kelas --</option>`;
+      availableClasses.forEach(c => {
+        filterSelect.innerHTML += `<option value="${c.id}" ${classFilter === c.id ? 'selected' : ''}>${c.nama}</option>`;
+      });
+
+      let filtered = db.journals;
+      if (classFilter !== 'ALL') filtered = filtered.filter(j => j.classId === classFilter);
+      if (query) {
+        filtered = filtered.filter(j => 
+          j.materi.toLowerCase().includes(query) || 
+          j.tujuan.toLowerCase().includes(query) || 
+          j.catatanRefleksi.toLowerCase().includes(query)
+        );
+      }
+
+      tbody.innerHTML = '';
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-400 italic">Belum ada jurnal tersimpan.</td></tr>`;
+        return;
+      }
+
+      filtered.sort((a,b) => new Date(b.tanggal) - new Date(a.tanggal)).forEach(j => {
+        const cls = db.classes.find(c => c.id === j.classId);
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3 px-3 font-bold text-slate-700">${j.tanggal}</td>
+            <td class="py-3 px-3 font-bold text-indigo-600">${cls ? cls.nama : '-'}</td>
+            <td class="py-3 px-3 font-bold text-slate-800">${j.materi}</td>
+            <td class="py-3 px-3 text-slate-600">${j.tujuan || '-'}</td>
+            <td class="py-3 px-3 text-slate-500 italic">${j.catatanRefleksi || '-'}</td>
+            <td class="py-3 px-3 text-right space-x-2">
+              <button onclick="editJournal('${j.id}')" class="text-indigo-600 hover:text-indigo-800 font-bold">Edit</button>
+              <button onclick="deleteJournal('${j.id}')" class="text-rose-600 hover:text-rose-800 font-bold">Hapus</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function openJournalModal() {
+      const activeAY = getActiveAcademicYear();
+      const currentClasses = db.classes.filter(c => c.academicYearId === activeAY.id && c.semester === activeAY.semester);
+      if (currentClasses.length === 0) {
+        alert('Buat Kelas terlebih dahulu.');
+        return;
+      }
+
+      const tgl = prompt("Tanggal Jurnal (YYYY-MM-DD):", new Date().toISOString().slice(0,10));
+      if (!tgl) return;
+      const materi = prompt("Materi Pembelajaran:", "");
+      if (!materi) return;
+      const tujuan = prompt("Tujuan / Metode Pembelajaran:", "Diskusi Kelompok & Praktik");
+      const refleksi = prompt("Catatan Refleksi Guru:", "Siswa antusias dan tuntas.");
+
+      const newJournal = {
+        id: generateId('JRN'),
+        classId: currentClasses[0].id,
+        tanggal: tgl,
+        materi: materi.trim(),
+        tujuan: tujuan || '',
+        metode: 'Tatap Muka',
+        catatanRefleksi: refleksi || '',
+        createdAt: new Date().toISOString()
+      };
+      db.journals.push(newJournal);
+      saveLocalDb();
+      renderJournalsTable();
+    }
+
+    function editJournal(id) {
+      const j = db.journals.find(j => j.id === id);
+      if (!j) return;
+      const materi = prompt("Edit Materi:", j.materi);
+      if (!materi) return;
+      const tujuan = prompt("Edit Tujuan:", j.tujuan);
+      const refleksi = prompt("Edit Refleksi:", j.catatanRefleksi);
+
+      j.materi = materi.trim();
+      j.tujuan = tujuan || '';
+      j.catatanRefleksi = refleksi || '';
+      saveLocalDb();
+      renderJournalsTable();
+    }
+
+    function deleteJournal(id) {
+      if (confirm('Hapus jurnal ini?')) {
+        db.journals = db.journals.filter(j => j.id !== id);
+        saveLocalDb();
+        renderJournalsTable();
+      }
+    }
+
+    /* ==========================================================================
+       8. KELOMPOK SISWA MODULE
+       ========================================================================== */
+    function renderGroupsView() {
+      const activeAY = getActiveAcademicYear();
+      const availableClasses = db.classes.filter(c => c.academicYearId === activeAY.id && c.semester === activeAY.semester);
+      const classSelect = document.getElementById('groupClassFilter');
+
+      if (availableClasses.length === 0) {
+        classSelect.innerHTML = `<option value="">Belum ada kelas</option>`;
+        return;
+      }
+
+      if (!classSelect.value || !availableClasses.some(c => c.id === classSelect.value)) {
+        classSelect.innerHTML = '';
+        availableClasses.forEach(c => {
+          classSelect.innerHTML += `<option value="${c.id}">${c.nama}</option>`;
+        });
+      }
+
+      const selectedClassId = classSelect.value;
+      const classStudents = db.students.filter(s => s.classId === selectedClassId && s.status === 'Aktif');
+      const classGroups = db.groups.filter(g => g.classId === selectedClassId);
+
+      const assignedStudentIds = new Set();
+      classGroups.forEach(g => {
+        const members = db.groupMembers.filter(gm => gm.groupId === g.id);
+        members.forEach(m => assignedStudentIds.add(m.studentId));
+      });
+
+      const unassignedCount = classStudents.filter(s => !assignedStudentIds.has(s.id)).length;
+      document.getElementById('groupUnassignedCount').textContent = unassignedCount;
+
+      const grid = document.getElementById('groupCardsGrid');
+      grid.innerHTML = '';
+
+      if (classGroups.length === 0) {
+        grid.innerHTML = `<div class="col-span-full py-8 text-center text-slate-400 italic bg-slate-50 rounded-2xl border border-slate-200">Belum ada kelompok dibentuk di kelas ini. Klik "+ Kelompok Manual" atau "Bagi Acak Otomatis".</div>`;
+        return;
+      }
+
+      classGroups.forEach(g => {
+        const members = db.groupMembers.filter(gm => gm.groupId === g.id);
+        let membersHtml = '';
+        members.forEach(gm => {
+          const s = db.students.find(stu => stu.id === gm.studentId);
+          if (s) {
+            membersHtml += `
+              <li class="flex items-center justify-between text-xs py-1 border-b border-slate-100">
+                <span class="font-semibold text-slate-700">${s.noAbsen || '-'}. ${s.nama}</span>
+                <button onclick="removeStudentFromGroup('${gm.id}')" class="text-slate-400 hover:text-rose-600 text-[10px]"><i class="fa-solid fa-xmark"></i></button>
+              </li>
+            `;
+          }
+        });
+
+        grid.innerHTML += `
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+              <h4 class="font-black text-slate-800 text-sm">${g.nama}</h4>
+              <button onclick="deleteGroup('${g.id}')" class="text-rose-500 hover:text-rose-700 text-xs"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <ul class="space-y-1">
+              ${membersHtml || '<li class="text-xs text-slate-400 italic">Belum ada anggota.</li>'}
+            </ul>
+          </div>
+        `;
+      });
+    }
+
+    function openAutoGroupModal() {
+      const classId = document.getElementById('groupClassFilter').value;
+      if (!classId) return;
+      const countStr = prompt("Bagi menjadi berapa kelompok?", "4");
+      if (!countStr) return;
+      const numGroups = parseInt(countStr) || 4;
+
+      const students = db.students.filter(s => s.classId === classId && s.status === 'Aktif');
+      if (students.length === 0) {
+        alert('Tidak ada siswa aktif untuk dibagi!');
+        return;
+      }
+
+      // Clear existing groups for this class
+      const existingGroups = db.groups.filter(g => g.classId === classId);
+      existingGroups.forEach(eg => {
+        db.groupMembers = db.groupMembers.filter(gm => gm.groupId !== eg.id);
+      });
+      db.groups = db.groups.filter(g => g.classId !== classId);
+
+      // Create new groups
+      const newGroupIds = [];
+      for (let i = 1; i <= numGroups; i++) {
+        const gid = generateId('GRP');
+        db.groups.push({
+          id: gid,
+          classId: classId,
+          nama: `Kelompok ${i}`,
+          topik: 'Proyek Pembelajaran'
+        });
+        newGroupIds.push(gid);
+      }
+
+      // Shuffle students randomly
+      const shuffled = [...students].sort(() => 0.5 - Math.random());
+      shuffled.forEach((s, idx) => {
+        const targetGid = newGroupIds[idx % numGroups];
+        db.groupMembers.push({
+          id: generateId('GMB'),
+          groupId: targetGid,
+          studentId: s.id,
+          peran: 'Anggota'
+        });
+      });
+
+      saveLocalDb();
+      renderGroupsView();
+      alert(`✓ Berhasil membagi ${students.length} siswa secara acak ke ${numGroups} kelompok!`);
+    }
+
+    function openManualGroupModal() {
+      const classId = document.getElementById('groupClassFilter').value;
+      if (!classId) return;
+      const nama = prompt("Nama Kelompok Manual:", "Kelompok Praktikum");
+      if (!nama) return;
+
+      db.groups.push({
+        id: generateId('GRP'),
+        classId: classId,
+        nama: nama.trim(),
+        topik: 'Tugas Kerja Kelompok'
+      });
+      saveLocalDb();
+      renderGroupsView();
+    }
+
+    function removeStudentFromGroup(memberId) {
+      db.groupMembers = db.groupMembers.filter(gm => gm.id !== memberId);
+      saveLocalDb();
+      renderGroupsView();
+    }
+
+    function deleteGroup(groupId) {
+      if (confirm('Hapus kelompok ini?')) {
+        db.groups = db.groups.filter(g => g.id !== groupId);
+        db.groupMembers = db.groupMembers.filter(gm => gm.groupId !== groupId);
+        saveLocalDb();
+        renderGroupsView();
+      }
+    }
+
+    /* ==========================================================================
+       9. ASESMEN & RUBRIK MODULE
+       ========================================================================== */
+    function renderAssessmentsTable() {
+      const tbody = document.getElementById('assessmentsTableBody');
+      tbody.innerHTML = '';
+
+      if (db.assessments.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400 italic">Belum ada asesmen dibuat.</td></tr>`;
+        return;
+      }
+
+      db.assessments.forEach(a => {
+        const cls = db.classes.find(c => c.id === a.classId);
+        const rub = db.rubrics.find(r => r.id === a.rubricId);
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3 px-3 font-mono text-xs text-slate-400">${a.id}</td>
+            <td class="py-3 px-3 font-bold text-slate-800">${a.nama}</td>
+            <td class="py-3 px-3 font-semibold text-indigo-600">${a.kategori}</td>
+            <td class="py-3 px-3 font-semibold">${cls ? cls.nama : '-'}</td>
+            <td class="py-3 px-3 text-slate-600 font-medium">${rub ? rub.nama : 'Tanpa Rubrik'}</td>
+            <td class="py-3 px-3 text-center font-bold">${a.bobot}%</td>
+            <td class="py-3 px-3 text-right space-x-2">
+              <button onclick="editAssessment('${a.id}')" class="text-indigo-600 hover:text-indigo-800 font-bold">Edit</button>
+              <button onclick="deleteAssessment('${a.id}')" class="text-rose-600 hover:text-rose-800 font-bold">Hapus</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function openAssessmentModal() {
+      const activeAY = getActiveAcademicYear();
+      const currentClasses = db.classes.filter(c => c.academicYearId === activeAY.id && c.semester === activeAY.semester);
+      if (currentClasses.length === 0) {
+        alert('Buat Kelas terlebih dahulu.');
+        return;
+      }
+
+      const nama = prompt("Nama Asesmen (contoh: Tugas 1 / Kuis Informatika):", "");
+      if (!nama) return;
+      const kategori = prompt("Kategori (Tugas / Kuis / Proyek / UH):", "Tugas");
+      const bobot = prompt("Bobot (%) Nilai:", "20");
+
+      let rubricId = '';
+      if (db.rubrics.length > 0) {
+        rubricId = db.rubrics[0].id;
+      }
+
+      db.assessments.push({
+        id: generateId('ASM'),
+        classId: currentClasses[0].id,
+        rubricId: rubricId,
+        nama: nama.trim(),
+        kategori: kategori || 'Tugas',
+        bobot: parseInt(bobot) || 20,
+        createdAt: new Date().toISOString()
+      });
+
+      saveLocalDb();
+      renderAssessmentsTable();
+    }
+
+    function editAssessment(id) {
+      const a = db.assessments.find(asm => asm.id === id);
+      if (!a) return;
+      const nama = prompt("Edit Nama Asesmen:", a.nama);
+      if (!nama) return;
+      const bobot = prompt("Edit Bobot (%):", a.bobot);
+
+      a.nama = nama.trim();
+      if (bobot) a.bobot = parseInt(bobot) || 20;
+
+      saveLocalDb();
+      renderAssessmentsTable();
+    }
+
+    function deleteAssessment(id) {
+      if (confirm('Hapus asesmen ini?')) {
+        db.assessments = db.assessments.filter(a => a.id !== id);
+        db.scores = db.scores.filter(s => s.assessmentId !== id);
+        saveLocalDb();
+        renderAssessmentsTable();
+      }
+    }
+
+    /* Rubric Builder */
+    function renderRubricsView() {
+      const container = document.getElementById('rubricsCardsContainer');
+      container.innerHTML = '';
+
+      if (db.rubrics.length === 0) {
+        container.innerHTML = `<div class="py-8 text-center text-slate-400 italic bg-slate-50 rounded-2xl border border-slate-200">Belum ada rubrik dibuat. Klik "+ Rubrik Baru".</div>`;
+        return;
+      }
+
+      db.rubrics.forEach(r => {
+        const aspects = db.rubricAspects.filter(ra => ra.rubricId === r.id);
+        const totalWeight = aspects.reduce((sum, item) => sum + (item.bobot || 0), 0);
+
+        let aspectRows = '';
+        aspects.forEach(asp => {
+          aspectRows += `
+            <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl text-xs border border-slate-200/80">
+              <span class="font-bold text-slate-700">${asp.namaAspek} (${asp.bobot}%)</span>
+              <button onclick="deleteAspect('${asp.id}')" class="text-rose-500 hover:text-rose-700 text-xs"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          `;
+        });
+
+        container.innerHTML += `
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <h3 class="font-extrabold text-slate-800 text-base">${r.nama}</h3>
+                <p class="text-xs text-slate-500">Total Bobot Aspek: <span class="font-black ${totalWeight === 100 ? 'text-emerald-600' : 'text-amber-600'}">${totalWeight}%</span></p>
+              </div>
+              <div class="space-x-2">
+                <button onclick="openAddAspectModal('${r.id}')" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100">+ Tambah Aspek</button>
+                <button onclick="deleteRubric('${r.id}')" class="text-rose-600 hover:text-rose-800 text-xs font-bold">Hapus Rubrik</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              ${aspectRows || '<p class="text-xs text-slate-400 italic">Belum ada aspek dimasukkan.</p>'}
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function openRubricModal() {
+      const nama = prompt("Nama Rubrik Baru (contoh: Rubrik Unjuk Kerja Praktikum):", "");
+      if (!nama) return;
+
+      const newRubric = {
+        id: generateId('RBR'),
+        nama: nama.trim(),
+        deskripsi: 'Rubrik Penilaian Berbasis Aspek',
+        createdAt: new Date().toISOString()
+      };
+      db.rubrics.push(newRubric);
+
+      // Add default aspects (Pemahaman & Kelengkapan)
+      db.rubricAspects.push({ id: generateId('ASP'), rubricId: newRubric.id, namaAspek: 'Pemahaman Konsep', bobot: 50, skorMaksimal: 100 });
+      db.rubricAspects.push({ id: generateId('ASP'), rubricId: newRubric.id, namaAspek: 'Kreativitas & Penyajian', bobot: 50, skorMaksimal: 100 });
+
+      saveLocalDb();
+      renderRubricsView();
+    }
+
+    function openAddAspectModal(rubricId) {
+      const nama = prompt("Nama Aspek Penilaian:", "");
+      if (!nama) return;
+      const bobot = prompt("Bobot Aspek (%):", "25");
+
+      db.rubricAspects.push({
+        id: generateId('ASP'),
+        rubricId: rubricId,
+        namaAspek: nama.trim(),
+        bobot: parseInt(bobot) || 25,
+        skorMaksimal: 100
+      });
+
+      saveLocalDb();
+      renderRubricsView();
+    }
+
+    function deleteAspect(aspectId) {
+      db.rubricAspects = db.rubricAspects.filter(a => a.id !== aspectId);
+      saveLocalDb();
+      renderRubricsView();
+    }
+
+    function deleteRubric(rubricId) {
+      if (confirm('Hapus rubrik ini?')) {
+        db.rubrics = db.rubrics.filter(r => r.id !== rubricId);
+        db.rubricAspects = db.rubricAspects.filter(a => a.rubricId !== rubricId);
+        saveLocalDb();
+        renderRubricsView();
+      }
+    }
+
+    /* ==========================================================================
+       10. INPUT NILAI MODULE
+       ========================================================================== */
+    function handleScoreClassChange() {
+      const classId = document.getElementById('scoreClassSelect').value;
+      const asmSelect = document.getElementById('scoreAssessmentSelect');
+      const classAssessments = db.assessments.filter(a => a.classId === classId);
+
+      asmSelect.innerHTML = '';
+      if (classAssessments.length === 0) {
+        asmSelect.innerHTML = `<option value="">Belum ada asesmen</option>`;
+      } else {
+        classAssessments.forEach(a => {
+          asmSelect.innerHTML += `<option value="${a.id}">${a.nama} (${a.kategori})</option>`;
+        });
+      }
+      renderScoreInputGrid();
+    }
+
+    function renderScoreInputGrid() {
+      const classSelect = document.getElementById('scoreClassSelect');
+      const activeAY = getActiveAcademicYear();
+      const availableClasses = db.classes.filter(c => c.academicYearId === activeAY.id && c.semester === activeAY.semester);
+
+      if (!classSelect.value || !availableClasses.some(c => c.id === classSelect.value)) {
+        classSelect.innerHTML = '';
+        availableClasses.forEach(c => {
+          classSelect.innerHTML += `<option value="${c.id}">${c.nama}</option>`;
+        });
+      }
+
+      const selectedClassId = classSelect.value;
+      const classAssessments = db.assessments.filter(a => a.classId === selectedClassId);
+      const asmSelect = document.getElementById('scoreAssessmentSelect');
+
+      if (asmSelect.options.length === 0) {
+        classAssessments.forEach(a => {
+          asmSelect.innerHTML += `<option value="${a.id}">${a.nama} (${a.kategori})</option>`;
+        });
+      }
+
+      const selectedAsmId = asmSelect.value;
+      const asm = db.assessments.find(a => a.id === selectedAsmId);
+      const classStudents = db.students.filter(s => s.classId === selectedClassId && s.status === 'Aktif')
+                                      .sort((a,b) => (a.noAbsen || 0) - (b.noAbsen || 0));
+
+      const headerRow = document.getElementById('scoreGridHeaderRow');
+      headerRow.innerHTML = `
+        <th class="py-3 px-3 w-10 text-center">No</th>
+        <th class="py-3 px-3 min-w-[180px]">Nama Siswa</th>
+      `;
+
+      let aspects = [];
+      if (asm && asm.rubricId) {
+        aspects = db.rubricAspects.filter(ra => ra.rubricId === asm.rubricId);
+      }
+
+      if (aspects.length === 0) {
+        headerRow.innerHTML += `<th class="py-3 px-3 text-center">Nilai Akhir (0-100)</th>`;
+      } else {
+        aspects.forEach(asp => {
+          headerRow.innerHTML += `<th class="py-3 px-3 text-center min-w-[110px]">${asp.namaAspek}<br><span class="text-[10px] text-indigo-600">(${asp.bobot}%)</span></th>`;
+        });
+        headerRow.innerHTML += `<th class="py-3 px-3 text-center w-24">Nilai Akhir</th>`;
+      }
+
+      const tbody = document.getElementById('scoreGridBody');
+      tbody.innerHTML = '';
+
+      if (classStudents.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${3 + aspects.length}" class="py-6 text-center text-slate-400 italic">Tidak ada siswa aktif.</td></tr>`;
+        return;
+      }
+
+      classStudents.forEach((s, idx) => {
+        let rowHtml = `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2.5 px-3 text-center font-bold text-slate-500">${s.noAbsen || (idx + 1)}</td>
+            <td class="py-2.5 px-3 font-bold text-slate-800">${s.nama}</td>
+        `;
+
+        if (aspects.length === 0) {
+          const scoreObj = db.scores.find(sc => sc.assessmentId === selectedAsmId && sc.studentId === s.id);
+          const scoreVal = scoreObj ? scoreObj.scoreValue : 80;
+          rowHtml += `
+            <td class="py-2 px-2 text-center">
+              <input type="number" min="0" max="100" data-student="${s.id}" data-aspect="MAIN" value="${scoreVal}" class="w-20 px-2 py-1 border border-slate-300 rounded text-center text-xs font-bold text-indigo-700 focus:ring-2 focus:ring-indigo-500">
+            </td>
+          `;
+        } else {
+          let calculatedTotal = 0;
+          aspects.forEach(asp => {
+            const scoreObj = db.scores.find(sc => sc.assessmentId === selectedAsmId && sc.studentId === s.id && sc.aspectId === asp.id);
+            const scoreVal = scoreObj ? scoreObj.scoreValue : 80;
+            calculatedTotal += (scoreVal * (asp.bobot / 100));
+
+            rowHtml += `
+              <td class="py-2 px-2 text-center">
+                <input type="number" min="0" max="100" data-student="${s.id}" data-aspect="${asp.id}" value="${scoreVal}" oninput="recalculateRowScore(this)" class="score-input w-20 px-2 py-1 border border-slate-300 rounded text-center text-xs font-bold focus:ring-2 focus:ring-indigo-500">
+              </td>
+            `;
+          });
+
+          rowHtml += `<td class="py-2 px-2 text-center font-black text-indigo-600 row-total-score">${Math.round(calculatedTotal)}</td>`;
+        }
+
+        rowHtml += `</tr>`;
+        tbody.innerHTML += rowHtml;
+      });
+    }
+
+    function recalculateRowScore(inputEl) {
+      const tr = inputEl.closest('tr');
+      const inputs = tr.querySelectorAll('.score-input');
+      const classAsmId = document.getElementById('scoreAssessmentSelect').value;
+      const asm = db.assessments.find(a => a.id === classAsmId);
+      if (!asm) return;
+
+      const aspects = db.rubricAspects.filter(ra => ra.rubricId === asm.rubricId);
+      let total = 0;
+
+      inputs.forEach((inp, idx) => {
+        const val = parseFloat(inp.value) || 0;
+        const weight = aspects[idx] ? aspects[idx].bobot : 0;
+        total += (val * (weight / 100));
+      });
+
+      const totalEl = tr.querySelector('.row-total-score');
+      if (totalEl) totalEl.textContent = Math.round(total);
+    }
+
+    function saveAllScores() {
+      const asmId = document.getElementById('scoreAssessmentSelect').value;
+      if (!asmId) return;
+
+      const inputs = document.querySelectorAll('#scoreGridBody input[data-student]');
+      inputs.forEach(inp => {
+        const studentId = inp.getAttribute('data-student');
+        const aspectId = inp.getAttribute('data-aspect');
+        const val = parseFloat(inp.value) || 0;
+
+        let existing = db.scores.find(sc => sc.assessmentId === asmId && sc.studentId === studentId && sc.aspectId === aspectId);
+        if (existing) {
+          existing.scoreValue = val;
+        } else {
+          db.scores.push({
+            id: generateId('SCR'),
+            assessmentId: asmId,
+            studentId: studentId,
+            aspectId: aspectId,
+            scoreValue: val
+          });
+        }
+      });
+
+      saveLocalDb();
+      alert('✓ Semua nilai berhasil disimpan!');
+    }
+
+    /* ==========================================================================
+       11. REKAP NILAI MODULE
+       ========================================================================== */
+    function renderScoreRecapTable() {
+      const activeAY = getActiveAcademicYear();
+      const availableClasses = db.classes.filter(c => c.academicYearId === activeAY.id && c.semester === activeAY.semester);
+      const classSelect = document.getElementById('recapClassSelect');
+
+      if (!classSelect.value || !availableClasses.some(c => c.id === classSelect.value)) {
+        classSelect.innerHTML = '';
+        availableClasses.forEach(c => {
+          classSelect.innerHTML += `<option value="${c.id}">${c.nama}</option>`;
+        });
+      }
+
+      const selectedClassId = classSelect.value;
+      const classAssessments = db.assessments.filter(a => a.classId === selectedClassId);
+      const classStudents = db.students.filter(s => s.classId === selectedClassId && s.status === 'Aktif')
+                                      .sort((a,b) => (a.noAbsen || 0) - (b.noAbsen || 0));
+
+      const headerRow = document.getElementById('recapTableHeaderRow');
+      headerRow.innerHTML = `
+        <th class="py-3 px-3 w-10">No</th>
+        <th class="py-3 px-3 min-w-[180px]">Nama Siswa</th>
+      `;
+
+      classAssessments.forEach(a => {
+        headerRow.innerHTML += `<th class="py-3 px-3 text-center border-l border-slate-200">${a.nama}</th>`;
+      });
+      headerRow.innerHTML += `<th class="py-3 px-3 text-center border-l border-slate-200 bg-indigo-50 text-indigo-800">Rata-Rata</th>`;
+
+      const tbody = document.getElementById('recapTableBody');
+      tbody.innerHTML = '';
+
+      if (classStudents.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${3 + classAssessments.length}" class="py-6 text-center text-slate-400 italic">Tidak ada siswa aktif.</td></tr>`;
+        return;
+      }
+
+      classStudents.forEach((s, idx) => {
+        let rowHtml = `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2.5 px-3 text-center font-bold text-slate-500">${s.noAbsen || (idx + 1)}</td>
+            <td class="py-2.5 px-3 font-bold text-slate-800">${s.nama}</td>
+        `;
+
+        let totalVal = 0;
+        let asmCount = 0;
+
+        classAssessments.forEach(a => {
+          const studentScores = db.scores.filter(sc => sc.assessmentId === a.id && sc.studentId === s.id);
+          let asmScore = 80;
+          if (studentScores.length > 0) {
+            const aspects = db.rubricAspects.filter(ra => ra.rubricId === a.rubricId);
+            if (aspects.length > 0) {
+              asmScore = 0;
+              aspects.forEach(asp => {
+                const sc = studentScores.find(item => item.aspectId === asp.id);
+                const val = sc ? sc.scoreValue : 80;
+                asmScore += (val * (asp.bobot / 100));
+              });
+            } else {
+              asmScore = studentScores[0].scoreValue;
+            }
+          }
+
+          totalVal += asmScore;
+          asmCount++;
+          rowHtml += `<td class="py-2.5 px-3 text-center font-bold text-slate-700 border-l border-slate-200">${Math.round(asmScore)}</td>`;
+        });
+
+        const avg = asmCount > 0 ? Math.round(totalVal / asmCount) : 0;
+        rowHtml += `<td class="py-2.5 px-3 text-center font-black text-indigo-700 bg-indigo-50/50 border-l border-slate-200">${avg}</td></tr>`;
+        tbody.innerHTML += rowHtml;
+      });
+    }
+
+    function exportScoresCSV() {
+      const classId = document.getElementById('recapClassSelect').value;
+      const classAssessments = db.assessments.filter(a => a.classId === classId);
+      const classStudents = db.students.filter(s => s.classId === classId && s.status === 'Aktif');
+
+      let csv = "Nama Siswa," + classAssessments.map(a => `"${a.nama}"`).join(",") + ",Rata-Rata\n";
+
+      classStudents.forEach(s => {
+        let totalVal = 0;
+        let asmCount = 0;
+        let line = `"${s.nama}"`;
+
+        classAssessments.forEach(a => {
+          const studentScores = db.scores.filter(sc => sc.assessmentId === a.id && sc.studentId === s.id);
+          let asmScore = 80;
+          if (studentScores.length > 0) {
+            const aspects = db.rubricAspects.filter(ra => ra.rubricId === a.rubricId);
+            if (aspects.length > 0) {
+              asmScore = 0;
+              aspects.forEach(asp => {
+                const sc = studentScores.find(item => item.aspectId === asp.id);
+                const val = sc ? sc.scoreValue : 80;
+                asmScore += (val * (asp.bobot / 100));
+              });
+            } else {
+              asmScore = studentScores[0].scoreValue;
+            }
+          }
+          totalVal += asmScore;
+          asmCount++;
+          line += `,"${Math.round(asmScore)}"`;
+        });
+
+        const avg = asmCount > 0 ? Math.round(totalVal / asmCount) : 0;
+        line += `,"${avg}"\n`;
+        csv += line;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", `rekap_nilai_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    /* ==========================================================================
+       12. ANALISIS NILAI MODULE
+       ========================================================================== */
+    function renderAnalysisView() {
+      const activeAY = getActiveAcademicYear();
+      const availableClasses = db.classes.filter(c => c.academicYearId === activeAY.id && c.semester === activeAY.semester);
+      const classSelect = document.getElementById('analysisClassSelect');
+
+      if (!classSelect.value || !availableClasses.some(c => c.id === classSelect.value)) {
+        classSelect.innerHTML = '';
+        availableClasses.forEach(c => {
+          classSelect.innerHTML += `<option value="${c.id}">${c.nama}</option>`;
+        });
+      }
+
+      const selectedClassId = classSelect.value;
+      const classAssessments = db.assessments.filter(a => a.classId === selectedClassId);
+      const asmSelect = document.getElementById('analysisAssessmentSelect');
+
+      asmSelect.innerHTML = '';
+      classAssessments.forEach(a => {
+        asmSelect.innerHTML += `<option value="${a.id}">${a.nama}</option>`;
+      });
+
+      const selectedAsmId = asmSelect.value;
+      const classStudents = db.students.filter(s => s.classId === selectedClassId && s.status === 'Aktif');
+
+      if (classStudents.length === 0 || !selectedAsmId) {
+        document.getElementById('anaAvg').textContent = '0.0';
+        document.getElementById('anaMax').textContent = '0';
+        document.getElementById('anaMin').textContent = '0';
+        document.getElementById('anaPassRate').textContent = '0%';
+        return;
+      }
+
+      const scoresList = [];
+      classStudents.forEach(s => {
+        const studentScores = db.scores.filter(sc => sc.assessmentId === selectedAsmId && sc.studentId === s.id);
+        let val = 80;
+        if (studentScores.length > 0) val = studentScores[0].scoreValue;
+        scoresList.push(val);
+      });
+
+      const sum = scoresList.reduce((a, b) => a + b, 0);
+      const avg = (sum / scoresList.length).toFixed(1);
+      const max = Math.max(...scoresList);
+      const min = Math.min(...scoresList);
+      const passedCount = scoresList.filter(s => s >= 75).length;
+      const passRate = Math.round((passedCount / scoresList.length) * 100);
+
+      document.getElementById('anaAvg').textContent = avg;
+      document.getElementById('anaMax').textContent = max;
+      document.getElementById('anaMin').textContent = min;
+      document.getElementById('anaPassRate').textContent = `${passRate}%`;
+    }
+
+    /* ==========================================================================
+       13. REMEDIAL & PENGAYAAN MODULE
+       ========================================================================== */
+    function renderRemedialTable() {
+      const tbody = document.getElementById('remedialTableBody');
+      tbody.innerHTML = '';
+
+      if (db.remedials.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-slate-400 italic">Belum ada catatan tindak lanjut.</td></tr>`;
+        return;
+      }
+
+      db.remedials.forEach(r => {
+        const stu = db.students.find(s => s.id === r.studentId);
+        const asm = db.assessments.find(a => a.id === r.assessmentId);
+
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3 px-3 font-bold text-slate-800">${stu ? stu.nama : '-'}</td>
+            <td class="py-3 px-3 font-semibold text-indigo-600">${asm ? asm.nama : '-'}</td>
+            <td class="py-3 px-3 font-bold ${r.jenis === 'Remedial' ? 'text-amber-600' : 'text-emerald-600'}">${r.jenis}</td>
+            <td class="py-3 px-3 font-bold text-slate-600">${r.nilaiAwal}</td>
+            <td class="py-3 px-3 text-slate-700">${r.bentukProgram}</td>
+            <td class="py-3 px-3 font-black text-indigo-700">${r.nilaiAkhir}</td>
+            <td class="py-3 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">${r.status}</span></td>
+            <td class="py-3 px-3 text-right">
+              <button onclick="deleteRemedial('${r.id}')" class="text-rose-600 hover:text-rose-800 font-bold text-xs">Hapus</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function openRemedialModal() {
+      if (db.students.length === 0 || db.assessments.length === 0) {
+        alert('Pastikan data siswa dan asesmen sudah diisi terlebih dahulu.');
+        return;
+      }
+
+      const jenis = prompt("Jenis Tindak Lanjut (Remedial / Pengayaan):", "Remedial");
+      if (!jenis) return;
+      const bentuk = prompt("Bentuk Program:", "Penugasan Ulang & Pembimbingan Individu");
+
+      db.remedials.push({
+        id: generateId('RMD'),
+        studentId: db.students[0].id,
+        assessmentId: db.assessments[0].id,
+        jenis: jenis,
+        nilaiAwal: 60,
+        bentukProgram: bentuk || 'Penugasan Ulang',
+        nilaiAkhir: 80,
+        status: 'Tuntas',
+        createdAt: new Date().toISOString()
+      });
+
+      saveLocalDb();
+      renderRemedialTable();
+    }
+
+    function deleteRemedial(id) {
+      if (confirm('Hapus catatan ini?')) {
+        db.remedials = db.remedials.filter(r => r.id !== id);
+        saveLocalDb();
+        renderRemedialTable();
+      }
+    }
+
+    /* ==========================================================================
+       14. GOOGLE APPS SCRIPT SPREADSHEET CLOUD SYNC ENGINE
+       ========================================================================== */
+    function loadSyncSettings() {
+      document.getElementById('gasWebAppUrlInput').value = db.settings.webAppUrl || '';
+    }
+
+    function handleSaveWebAppUrl() {
+      const url = document.getElementById('gasWebAppUrlInput').value.trim();
+      db.settings.webAppUrl = url;
+      db.settings.syncStatus = url ? 'Connected' : 'Local Storage';
+      saveLocalDb(false);
+      alert('✓ Google Apps Script Web App URL berhasil disimpan!');
+    }
+
+    function testSpreadsheetConnection() {
+      const url = db.settings.webAppUrl;
+      if (!url) {
+        alert('Masukkan Google Apps Script Web App URL terlebih dahulu.');
+        return;
+      }
+
+      fetch(url + '?action=ping')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.status === 'success') {
+            db.settings.syncStatus = 'Connected';
+            saveLocalDb(false);
+            alert('✓ Koneksi ke Google Spreadsheet BERHASIL!');
+          } else {
+            alert('Respons tidak valid dari Apps Script.');
+          }
+        })
+        .catch(err => {
+          console.error('Ping Error:', err);
+          alert('Gagal terhubung ke Google Apps Script URL. Pastikan pendeployan di-set ke "Anyone".');
+        });
+    }
+
+    function pushLocalDataToSpreadsheet() {
+      const url = db.settings.webAppUrl;
+      if (!url) return;
+
+      const payload = {
+        action: 'saveDb',
+        dbData: JSON.stringify(db)
+      };
+
+      fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(() => {
+        db.settings.syncStatus = 'Connected';
+        db.settings.lastSync = new Date().toISOString();
+        updateSyncBadgeUI();
+      })
+      .catch(err => console.error('Auto Push Error:', err));
+    }
+
+    function syncNowWithSpreadsheet() {
+      const url = db.settings.webAppUrl;
+      if (!url) {
+        alert('Silakan tentukan Google Apps Script Web App URL pada menu Spreadsheet Sync.');
+        switchView('sync');
+        return;
+      }
+
+      fetch(url + '?action=getDb')
+        .then(res => res.json())
+        .then(remoteDb => {
+          if (remoteDb && remoteDb.teacherData) {
+            db = { ...db, ...remoteDb };
+            db.settings.syncStatus = 'Connected';
+            db.settings.lastSync = new Date().toISOString();
+            saveLocalDb(false);
+            updateHeaderContextUI();
+            switchView('dashboard');
+            alert('✓ Data berhasil disinkronkan langsung dari Google Cloud Spreadsheet!');
+          }
+        })
+        .catch(err => {
+          console.error('Sync Error:', err);
+          alert('Gagal mengambil data cloud. Mempergunakan cache data lokal.');
+        });
+    }
+
+    /* Modal Apps Script Code Viewer */
+    function openAppsScriptCodeModal() {
+      const code = getAppsScriptSourceCode();
+      document.getElementById('appsScriptCodeTextarea').value = code;
+      document.getElementById('modalAppsScriptCode').classList.remove('hidden');
+    }
+
+    function copyAppsScriptCode() {
+      const textarea = document.getElementById('appsScriptCodeTextarea');
+      textarea.select();
+      document.execCommand('copy');
+      alert('✓ Kode Apps Script berhasil disalin ke clipboard!');
+    }
+
+    function getAppsScriptSourceCode() {
+      return `/**
+ * TEACHER WORKBOOK - GOOGLE APPS SCRIPT BACKEND
+ * Tempelkan kode ini di Google Apps Script (Editor Script)
+ */
+
+function doGet(e) {
+  var action = e.parameter.action;
+  if (action === 'ping') {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Teacher Workbook Cloud Connected' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  if (action === 'getDb') {
+    var scriptProperties = PropertiesService.getScriptProperties();
+    var storedDb = scriptProperties.getProperty('TEACHER_WORKBOOK_DB');
+    if (!storedDb) {
+      storedDb = "{}";
+    }
+    return ContentService.createTextOutput(storedDb)
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ status: 'active' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    if (data.action === 'saveDb' && data.dbData) {
+      var scriptProperties = PropertiesService.getScriptProperties();
+      scriptProperties.setProperty('TEACHER_WORKBOOK_DB', data.dbData);
+      return ContentService.createTextOutput(JSON.stringify({ status: 'success' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+    }
+
+    /* ==========================================================================
+       15. DEMO DATA GENERATOR
+       ========================================================================== */
+    function handleGenerateDemoData() {
+      if (!confirm('Generate data simulasi lengkap? Data lama akan digabungkan.')) return;
+
+      const activeAY = getActiveAcademicYear();
+      const demoClass1 = { id: 'CLS-0001', academicYearId: activeAY.id, semester: activeAY.semester, nama: 'X-1 IPA', tingkat: 'X', waliKelas: db.teacherData.nama, keterangan: 'Unggulan', status: 'AKTIF' };
+      const demoClass2 = { id: 'CLS-0002', academicYearId: activeAY.id, semester: activeAY.semester, nama: 'X-2 IPS', tingkat: 'X', waliKelas: 'Siti Aminah, S.Pd', keterangan: 'Reguler', status: 'AKTIF' };
+
+      db.classes = [demoClass1, demoClass2];
+
+      const sampleNames = ['Ahmad Budi', 'Bunga Maharani', 'Citra Kirana', 'Deden Prasetyo', 'Eka Putra', 'Farah Dibah', 'Giri Wijaya', 'Hendra Setiawan'];
+      db.students = [];
+
+      sampleNames.forEach((n, idx) => {
+        db.students.push({
+          id: generateId('STU'),
+          classId: demoClass1.id,
+          noAbsen: idx + 1,
+          nisn: `100234567${idx}`,
+          nis: `20260${idx}`,
+          nama: n,
+          jk: idx % 2 === 0 ? 'L' : 'P',
+          status: 'Aktif',
+          createdAt: new Date().toISOString()
+        });
+      });
+
+      saveLocalDb();
+      switchView('dashboard');
+      alert('✓ Data demo berhasil digenerate!');
+    }
+
+    function handleClearDemoData() {
+      if (confirm('Hapus seluruh data di aplikasi? Tindakan ini tidak dapat dibatalkan.')) {
+        localStorage.removeItem(APP_STORAGE_KEY);
+        location.reload();
+      }
+    }
+
+    /* ==========================================================================
+       APP INITIALIZATION
+       ========================================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
+      loadLocalDb();
+      updateHeaderContextUI();
+      updateSyncBadgeUI();
+      renderDashboardView();
+
+      // Auto fetch from cloud on launch if web app URL is present
+      if (db.settings.webAppUrl) {
+        syncNowWithSpreadsheet();
+      }
+    });
+  </script>
+</body>
+</html>
+
+<script>
+/* ==========================================================================
+   CLOUD SYNC FUNCTIONALITIES (MODIFIED & SAFE VERSION)
+   ========================================================================== */
+
+// Memastikan objek db & db.settings selalu ada agar tidak error
+function ensureDbSettings() {
+  if (typeof db === 'undefined') {
+    window.db = { settings: {} };
+  }
+  if (!window.db.settings) {
+    window.db.settings = {};
+  }
+}
+
+function loadSyncSettings() {
+  ensureDbSettings();
+  const inputUrl = document.getElementById('gasWebAppUrlInput');
+  if (inputUrl) {
+    inputUrl.value = window.db.settings.webAppUrl || '';
+  }
+  if (typeof updateSyncBadgeUI === 'function') {
+    updateSyncBadgeUI();
+  }
+}
+
+function handleSaveWebAppUrl() {
+  ensureDbSettings();
+  const inputEl = document.getElementById('gasWebAppUrlInput');
+  const url = inputEl ? inputEl.value.trim() : '';
+  
+  window.db.settings.webAppUrl = url;
+  window.db.settings.syncStatus = url ? 'Connected' : 'Local Storage';
+  
+  if (typeof saveLocalDb === 'function') {
+    saveLocalDb(false);
+  } else if (typeof saveDb === 'function') {
+    saveDb();
+  } else {
+    localStorage.setItem('teacher_workbook_db', JSON.stringify(window.db));
+  }
+  
+  alert('✓ Web App URL berhasil disimpan!');
+}
+
+async function syncNowWithSpreadsheet() {
+  ensureDbSettings();
+  
+  const webAppUrl = window.db.settings.webAppUrl;
+  if (!webAppUrl) {
+    alert('Masukkan Web App URL terlebih dahulu di menu Spreadsheet Sync!');
+    if (typeof switchView === 'function') switchView('sync');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${webAppUrl}?action=pull`);
+    const json = await res.json();
+
+    if (json.status === 'success' && json.data) {
+      window.db = Object.assign({}, window.db, json.data);
+      window.db.settings.syncStatus = 'Connected';
+      
+      // Simpan ke local storage
+      if (typeof saveLocalDb === 'function') saveLocalDb(false);
+      else localStorage.setItem('teacher_workbook_db', JSON.stringify(window.db));
+
+      // Refresh tampilan UI jika fungsinya tersedia
+      if (typeof updateHeaderContextUI === 'function') updateHeaderContextUI();
+      if (typeof renderDashboardView === 'function') renderDashboardView();
+      if (typeof updateSyncBadgeUI === 'function') updateSyncBadgeUI();
+      
+      alert('✓ Data berhasil disinkronkan dari Google Spreadsheet!');
+    } else if (json.status === 'empty') {
+      await pushLocalDataToSpreadsheet();
+      alert('✓ Data lokal pertama kali berhasil diunggah ke Spreadsheet!');
+    } else {
+      alert('Respon cloud: ' + (json.message || 'Tidak ada data'));
+    }
+  } catch (err) {
+    console.error('Cloud Pull Error:', err);
+    alert('Gagal mengambil data dari cloud. Periksa koneksi internet atau URL Apps Script Anda.');
+  }
+}
+
+async function pushLocalDataToSpreadsheet() {
+  ensureDbSettings();
+  const webAppUrl = window.db.settings.webAppUrl;
+  if (!webAppUrl) return;
+
+  try {
+    await fetch(webAppUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'push', db: window.db })
+    });
+    
+    window.db.settings.syncStatus = 'Connected';
+    if (typeof updateSyncBadgeUI === 'function') updateSyncBadgeUI();
+  } catch (err) {
+    console.error('Cloud Push Error:', err);
+  }
+}
+
+function testSpreadsheetConnection() {
+  syncNowWithSpreadsheet();
+}
+
+function copyAppsScriptCode() {
+  const codeText = document.getElementById('appsScriptCodeTextarea');
+  if (codeText) {
+    codeText.select();
+    document.execCommand('copy');
+    alert('Kode Apps Script berhasil disalin!');
+  }
+}
+
+function openAppsScriptCodeModal() {
+  const modal = document.getElementById('modalAppsScriptCode');
+  if (modal) modal.classList.remove('hidden');
+}
+
+// Inisialisasi aman tanpa mengganggu fungsi DOMContentLoaded lain
+window.addEventListener('load', () => {
+  ensureDbSettings();
+  if (typeof loadLocalDb === 'function') loadLocalDb();
+  
+  loadSyncSettings();
+  
+  // Ambil data otomatis jika URL sudah pernah dimasukkan
+  if (window.db.settings && window.db.settings.webAppUrl) {
+    syncNowWithSpreadsheet();
+  }
+});
+</script>
+
