@@ -280,6 +280,23 @@ table{min-width:100%;border-collapse:collapse}th{white-space:nowrap;text-align:l
 
 <section id="view-settings" class="view space-y-5">
  <div><h2 class="text-xl font-display font-extrabold">Pengaturan</h2><p class="text-xs text-slate-500 mt-1">Preferensi tampilan dan utilitas pengembangan.</p></div>
+ <div class="card p-5">
+  <div class="flex items-start justify-between gap-4">
+    <div><h3 class="font-display font-extrabold text-sm">Akun & Keamanan</h3><p class="text-xs text-slate-400 mt-1">Kelola akun yang sedang digunakan pada workbook ini.</p></div>
+    <span class="badge badge-emerald">Secure Session</span>
+  </div>
+  <div class="grid md:grid-cols-3 gap-3 mt-4">
+    <div class="rounded-xl bg-slate-50 p-3"><div class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Nama</div><div id="accountName" class="text-sm font-bold text-slate-700 mt-1">—</div></div>
+    <div class="rounded-xl bg-slate-50 p-3"><div class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Username</div><div id="accountUsername" class="text-sm font-bold text-slate-700 mt-1">—</div></div>
+    <div class="rounded-xl bg-slate-50 p-3"><div class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Role</div><div id="accountRole" class="text-sm font-bold text-slate-700 mt-1">—</div></div>
+  </div>
+  <div class="mt-4 flex flex-wrap gap-2">
+    <button class="btn btn-primary" onclick="openChangePasswordModal()"><i class="fa-solid fa-key"></i>Ubah Password</button>
+    <button class="btn btn-white" onclick="verifyCurrentSession()"><i class="fa-solid fa-shield-halved"></i>Periksa Sesi</button>
+    <button class="btn btn-danger" onclick="teacherLogout(false)"><i class="fa-solid fa-right-from-bracket"></i>Logout</button>
+  </div>
+  <div id="accountSessionInfo" class="mt-3 text-[11px] text-slate-400"></div>
+ </div>
  <div class="card p-5"><div class="flex items-center justify-between py-2"><div><div class="text-sm font-bold">Mode Demo / Lokal</div><div class="text-xs text-slate-400">Data tetap di browser sampai Anda melakukan sinkronisasi.</div></div><span id="localBadge" class="badge badge-amber">Lokal</span></div><div class="border-t border-slate-100 mt-3 pt-4 flex flex-wrap gap-2"><button class="btn btn-white" onclick="loadDemoData()"><i class="fa-solid fa-flask"></i>Muat Data Demo</button><button class="btn btn-danger" onclick="clearLocalData()"><i class="fa-solid fa-trash"></i>Bersihkan Lokal</button></div></div>
 </section>
 </main></div>
@@ -708,7 +725,7 @@ document.addEventListener('DOMContentLoaded',()=>{ $('gasUrl').value=gasUrl(); c
   function clearSession(){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(USER_KEY);localStorage.removeItem(EXP_KEY);}
   function currentUser(){try{return JSON.parse(localStorage.getItem(USER_KEY)||'null')}catch(e){return null}}
   function resetIdle(){clearTimeout(idleTimer); if(!token())return; const mins=Math.max(5,parseInt(localStorage.getItem(IDLE_KEY)||'30',10)); idleTimer=setTimeout(()=>{teacherLogout(true)},mins*60000);}
-  function startIdleTimer(){['click','keydown','mousemove','scroll','touchstart'].forEach(ev=>window.addEventListener(ev,resetIdle,{passive:true}));resetIdle();}
+  let idleListenersStarted=false; function startIdleTimer(){if(!idleListenersStarted){['click','keydown','mousemove','scroll','touchstart'].forEach(ev=>window.addEventListener(ev,resetIdle,{passive:true}));idleListenersStarted=true;}resetIdle();}
   window.toggleLoginPassword=function(){const i=document.getElementById('twLoginPassword'),ic=document.getElementById('twEyeIcon');if(!i)return;i.type=i.type==='password'?'text':'password';if(ic)ic.className=i.type==='password'?'fa-solid fa-eye':'fa-solid fa-eye-slash';};
   window.teacherLogin=async function(ev){
     ev.preventDefault(); if(authBusy)return false; authBusy=true;
@@ -741,11 +758,61 @@ document.addEventListener('DOMContentLoaded',()=>{ $('gasUrl').value=gasUrl(); c
   document.addEventListener('DOMContentLoaded',function(){
     const urlInput=document.getElementById('twGasUrl'); if(urlInput && typeof gasUrl==='function') urlInput.value=gasUrl();
     const t=token(), exp=localStorage.getItem(EXP_KEY)||'';
-    if(t && exp && new Date(exp).getTime()>Date.now()){showApp();}
+    if(t && exp && new Date(exp).getTime()>Date.now()){
+      showApp();
+      setTimeout(async()=>{try{const r=await apiGet('authStatus');if(!r||r.status!=='success')throw new Error(r?.message||'Session tidak valid.');localStorage.setItem(USER_KEY,JSON.stringify(r.user||currentUser()||{}));localStorage.setItem(EXP_KEY,r.user?.expiresAt||exp);if(typeof pullData==='function')await pullData(false);if(typeof loadCloudTeacherPhoto==='function')await loadCloudTeacherPhoto();if(typeof renderAll==='function')renderAll(currentView||'dashboard');}catch(e){clearSession();showLogin('Sesi tidak valid atau sudah ditutup. Silakan login kembali.');}},250);
+    }
     else{clearSession();showLogin();}
     // Prevent cloud-first from pushing or exposing local data before login.
     if(!t || !exp || new Date(exp).getTime()<=Date.now()) return;
   });
+})();
+</script>
+
+<script>
+// =========================================================
+// TEACHER WORKBOOK V4.4 — ACCOUNT MANAGEMENT & HARDENING
+// =========================================================
+(function(){
+  const TOKEN_KEY='TW_V4_SESSION_TOKEN', USER_KEY='TW_V4_SESSION_USER', EXP_KEY='TW_V4_SESSION_EXPIRES';
+  let idleTimer=null, idleStarted=false;
+  function user(){try{return JSON.parse(localStorage.getItem(USER_KEY)||'null')}catch(e){return null}}
+  function renderAccount(){
+    const u=user();
+    if(document.getElementById('accountName')) document.getElementById('accountName').textContent=u?.nama||'—';
+    if(document.getElementById('accountUsername')) document.getElementById('accountUsername').textContent=u?.username||'—';
+    if(document.getElementById('accountRole')) document.getElementById('accountRole').textContent=u?.role||'—';
+    const ex=localStorage.getItem(EXP_KEY); if(document.getElementById('accountSessionInfo')) document.getElementById('accountSessionInfo').textContent=ex?'Session aktif sampai: '+new Date(ex).toLocaleString('id-ID'):'Session belum tersedia';
+  }
+  window.openChangePasswordModal=function(){
+    openModal('Ubah Password',`<div class="space-y-4">
+      <div><label class="label">Password Lama</label><input id="cpOld" type="password" class="input" autocomplete="current-password"></div>
+      <div><label class="label">Password Baru</label><input id="cpNew" type="password" class="input" autocomplete="new-password" placeholder="Minimal 8 karakter"></div>
+      <div><label class="label">Konfirmasi Password Baru</label><input id="cpConfirm" type="password" class="input" autocomplete="new-password"></div>
+      <div class="rounded-xl bg-blue-50 text-blue-700 text-xs p-3"><i class="fa-solid fa-circle-info mr-1"></i>Setelah password berhasil diubah, semua sesi aktif akan ditutup dan Anda perlu login kembali.</div>
+      <div id="cpStatus" class="hidden rounded-xl p-3 text-xs"></div>
+    </div>`,`<button class="btn btn-white" onclick="closeModal()">Batal</button><button class="btn btn-primary" onclick="submitChangePassword()"><i class="fa-solid fa-key"></i>Ubah Password</button>`);
+  };
+  window.submitChangePassword=async function(){
+    const oldPassword=document.getElementById('cpOld')?.value||'', newPassword=document.getElementById('cpNew')?.value||'', confirmPassword=document.getElementById('cpConfirm')?.value||'', status=document.getElementById('cpStatus');
+    if(newPassword.length<8||confirmPassword.length<8){status.className='rounded-xl p-3 text-xs bg-rose-50 text-rose-700';status.textContent='Password baru minimal 8 karakter.';status.classList.remove('hidden');return;}
+    if(newPassword!==confirmPassword){status.className='rounded-xl p-3 text-xs bg-rose-50 text-rose-700';status.textContent='Konfirmasi password tidak sama.';status.classList.remove('hidden');return;}
+    try{
+      const r=await apiPost('changePassword',{oldPassword,newPassword,confirmPassword});
+      if(!r||r.status!=='success')throw Error(r?.message||'Gagal mengubah password.');
+      closeModal(); toast('Password berhasil diubah. Silakan login kembali.');
+      setTimeout(()=>teacherLogout(true),700);
+    }catch(e){status.className='rounded-xl p-3 text-xs bg-rose-50 text-rose-700';status.textContent=e.message||'Gagal mengubah password.';status.classList.remove('hidden');}
+  };
+  window.verifyCurrentSession=async function(){
+    try{const r=await apiGet('authStatus');if(r?.status!=='success')throw Error(r?.message||'Session tidak valid.');localStorage.setItem(USER_KEY,JSON.stringify(r.user||user()||{}));localStorage.setItem(EXP_KEY,r.user?.expiresAt||localStorage.getItem(EXP_KEY)||'');renderAccount();toast('Session aktif dan valid.');}
+    catch(e){toast('Session bermasalah: '+e.message,'err');}
+  };
+  function resetIdleHard(){clearTimeout(idleTimer);if(!localStorage.getItem(TOKEN_KEY))return;const mins=Math.max(5,parseInt(localStorage.getItem('TW_V4_IDLE_MINUTES')||'30',10));idleTimer=setTimeout(()=>window.teacherLogout?.(true),mins*60000);}
+  if(!idleStarted){['click','keydown','mousemove','scroll','touchstart'].forEach(ev=>window.addEventListener(ev,resetIdleHard,{passive:true}));idleStarted=true;}
+  document.addEventListener('DOMContentLoaded',()=>{setTimeout(renderAccount,250);});
+  window.addEventListener('tw-auth-expired',()=>{renderAccount();});
+  const oldGo=window.go; if(typeof oldGo==='function'){window.go=function(view){oldGo(view);if(view==='settings')setTimeout(renderAccount,50);};}
 })();
 </script>
 </body>
