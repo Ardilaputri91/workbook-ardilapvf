@@ -63,7 +63,7 @@ table{min-width:100%;border-collapse:collapse}th{white-space:nowrap;text-align:l
 <div class="pt-[70px] max-w-[1600px] mx-auto px-3 lg:px-5 flex gap-4">
 <aside id="sidebar" class="sidebar w-[250px] shrink-0 bg-white border-r border-slate-200 min-h-[calc(100vh-70px)] py-5 px-3 no-print">
   <div class="px-3 mb-4">
-    <div id="sideTeacherAvatar" class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 text-white flex items-center justify-center font-extrabold">TW</div>
+    <div id="sideTeacherAvatar" class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 text-white flex items-center justify-center font-extrabold overflow-hidden"><img id="sideTeacherAvatarPhoto" class="w-full h-full object-cover hidden" alt="Foto profil guru"><span class="avatar-initial">TW</span></div>
     <div id="sideTeacherName" class="mt-2 text-xs font-extrabold truncate">Nama Guru</div>
     <div id="sideTeacherSubject" class="text-[10px] text-slate-400 truncate">Mata Pelajaran</div>
   </div>
@@ -95,7 +95,7 @@ table{min-width:100%;border-collapse:collapse}th{white-space:nowrap;text-align:l
 <main class="flex-1 min-w-0 py-5 lg:py-6">
 <section id="view-dashboard" class="view active space-y-5">
   <div class="rounded-[24px] overflow-hidden bg-gradient-to-br from-[#1b2a4a] via-[#243b68] to-[#4d3e96] text-white p-6 lg:p-8 relative">
-    <div class="relative z-10 max-w-3xl"><div class="text-[10px] uppercase tracking-[.2em] text-blue-200 font-extrabold">TEACHER WORKSPACE • V4</div><h1 class="font-display text-2xl lg:text-3xl font-extrabold mt-2">Selamat datang, <span id="dashTeacher">Bapak/Ibu Guru</span> 👋</h1><p class="text-sm text-slate-200 mt-2">Kelola kelas, siswa, presensi, jurnal, asesmen, dan nilai dalam satu workspace yang rapi.</p></div>
+    <div class="relative z-10 flex items-center gap-4 max-w-3xl"><div id="dashboardTeacherAvatar" class="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 to-violet-500 border border-white/20 shadow-lg flex items-center justify-center shrink-0"><img id="dashboardTeacherPhoto" class="w-full h-full object-cover hidden" alt="Foto profil guru"><span id="dashboardTeacherInitial" class="text-xl lg:text-2xl font-display font-extrabold text-white">AP</span></div><div><div class="text-[10px] uppercase tracking-[.2em] text-blue-200 font-extrabold">TEACHER WORKSPACE • V4</div><h1 class="font-display text-2xl lg:text-3xl font-extrabold mt-2">Selamat datang, <span id="dashTeacher">Bapak/Ibu Guru</span> 👋</h1><p class="text-sm text-slate-200 mt-2">Kelola kelas, siswa, presensi, jurnal, asesmen, dan nilai dalam satu workspace yang rapi.</p></div></div>
     <div class="absolute -right-16 -top-20 w-64 h-64 rounded-full bg-blue-400/10"></div><div class="absolute right-20 -bottom-28 w-72 h-72 rounded-full bg-violet-300/10"></div>
   </div>
   <div class="grid grid-cols-2 xl:grid-cols-4 gap-3">
@@ -505,12 +505,37 @@ async function syncGeneric(entity,data){return pushAll(false)}
 function renderAll(view=currentView){setTeacherUI();const y=activeYear();$('headerAcademic').textContent=(y.tahunAjaran||'—')+' • '+(y.semester||'—');if(view==='dashboard')renderDashboard();if(view==='academic')renderAcademic();if(view==='classes')renderClasses();if(view==='students')renderStudents();if(view==='attendance')renderAttendance();if(view==='journals')renderJournals();if(view==='groups'){populateClassSelect('groupClass',false);onGroupClassChange();renderGroups()}if(view==='assessments')renderAssessments();if(view==='rubrics')renderRubrics();if(view==='scores'){populateClassSelect('scoreClass',false);populateScoreAssessments();renderScores()}if(view==='recap')renderRecap();if(view==='analysis'){populateClassSelect('analysisClass',false);populateAnalysisAssessments();renderAnalysis()}if(view==='remedial')renderRemedial();if(view==='sync')$('gasUrl').value=gasUrl()}
 function renderTeacherPhoto(dataUrl){
   const t=db.teacherData[0]||{};
-  const img=$('teacherPhotoPreview'), initial=$('teacherPhotoInitial'), status=$('teacherPhotoStatus');
-  if(!img||!initial)return;
   const url=dataUrl||window.__teacherPhotoDataUrl||'';
-  if(url){img.src=url;img.classList.remove('hidden');initial.classList.add('hidden');}
-  else{img.removeAttribute('src');img.classList.add('hidden');initial.classList.remove('hidden');initial.textContent=(String(t.foto||$('tFoto')?.value||t.nama||'AP').replace(/^drive:/,'').trim().slice(0,2)||'AP').toUpperCase();}
+  const initials=(String(t.nama||$('tFoto')?.value||'AP').trim().split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('')||'AP').toUpperCase();
+
+  // Profile page photo
+  const img=$('teacherPhotoPreview'), initial=$('teacherPhotoInitial'), status=$('teacherPhotoStatus');
+  if(img&&initial){
+    if(url){img.src=url;img.classList.remove('hidden');initial.classList.add('hidden');}
+    else{img.removeAttribute('src');img.classList.add('hidden');initial.classList.remove('hidden');initial.textContent=initials;}
+  }
   if(status)status.textContent=t.foto&&String(t.foto).startsWith('drive:')?'Foto profil tersimpan di cloud dan dapat digunakan di perangkat lain.':'Pilih foto untuk menyimpannya ke cloud.';
+
+  // Sidebar avatar: always follows the same cloud/local photo state.
+  const sideImg=$('sideTeacherAvatarPhoto'), sideAvatar=$('sideTeacherAvatar');
+  if(sideAvatar){
+    if(url){
+      if(sideImg){sideImg.src=url;sideImg.classList.remove('hidden');}
+      sideAvatar.classList.add('overflow-hidden');
+      sideAvatar.querySelectorAll('.avatar-initial').forEach(el=>el.classList.add('hidden'));
+    }else{
+      if(sideImg){sideImg.removeAttribute('src');sideImg.classList.add('hidden');}
+      sideAvatar.classList.remove('overflow-hidden');
+      sideAvatar.querySelectorAll('.avatar-initial').forEach(el=>{el.classList.remove('hidden');el.textContent=initials;});
+    }
+  }
+
+  // Dashboard avatar
+  const dashImg=$('dashboardTeacherPhoto'), dashInitial=$('dashboardTeacherInitial');
+  if(dashImg&&dashInitial){
+    if(url){dashImg.src=url;dashImg.classList.remove('hidden');dashInitial.classList.add('hidden');}
+    else{dashImg.removeAttribute('src');dashImg.classList.add('hidden');dashInitial.classList.remove('hidden');dashInitial.textContent=initials;}
+  }
 }
 async function handleTeacherPhoto(ev){
   const file=ev.target.files&&ev.target.files[0]; if(!file)return;
@@ -543,7 +568,7 @@ async function saveTeacher(){const old=db.teacherData[0]||{};const avatar=$('tFo
 function exportAttendance(){const cid=$('attClass').value,sts=enrolledStudents(cid),meetings=db.meetings.filter(m=>m.classId===cid),rows=sts.map(x=>{const r={'No Absen':x.e.noAbsen,'Nama Siswa':x.s.nama};meetings.forEach(m=>r[m.date||m.id]=db.attendance.find(a=>a.meetingId===m.id&&a.studentId===x.s.id)?.status||'');return r});downloadCSV(rows,'TeacherWorkbook_V4_Presensi.csv')}
 function loadDemoData(){if(!confirm('Muat data demo dan mengganti data lokal saat ini?'))return;const ay={id:'AY_DEMO',tahunAjaran:'2026/2027',semester:'Ganjil',status:'Aktif'};db=structuredClone(emptyDB);db.academicYears=[ay];db.teacherData=[{id:'TCH_DEMO',nama:'Nama Guru',mapel:'Bahasa Inggris',sekolah:'SMAN 1 Sumbermanjing'}];db.classes=[{id:'CLS_XI4',nama:'XI-4',tingkat:'XI',waliKelas:'Nama Wali',academicYearId:ay.id,tahunAjaran:ay.tahunAjaran,status:'Aktif'}];['Alya Putri','Bima Pratama','Citra Maharani','Daffa Ramadhan','Eka Lestari','Fajar Nugraha','Gina Amelia','Hafiz Akbar'].forEach((n,i)=>{const id='STU_'+(i+1);db.students.push({id,nama:n,nisn:'000000000'+(i+1),nis:'10'+(i+1),jk:i%2?'L':'P',status:'Aktif'});db.enrollments.push({id:'ENR_'+(i+1),studentId:id,classId:'CLS_XI4',academicYearId:ay.id,tahunAjaran:ay.tahunAjaran,semester:'Ganjil',noAbsen:i+1,status:'Aktif'})});db.assessments=[{id:'ASM_1',nama:'Narrative Project',classId:'CLS_XI4',tanggal:new Date().toISOString().slice(0,10),bobot:100}];saveLocal();toast('Data demo dimuat.');renderAll()}
 function clearLocalData(){if(!confirm('Hapus data lokal browser? Data Spreadsheet tidak ikut terhapus.'))return;db=structuredClone(emptyDB);saveLocal();toast('Data lokal dibersihkan.');renderAll()}
-document.addEventListener('DOMContentLoaded',()=>{$('gasUrl').value=gasUrl();renderAll();if(gasUrl())testConnection()});
+document.addEventListener('DOMContentLoaded',()=>{$('gasUrl').value=gasUrl();renderAll();if(typeof loadCloudTeacherPhoto==='function' && gasUrl())setTimeout(loadCloudTeacherPhoto,450);if(gasUrl())testConnection()});
 </script>
 
 
@@ -590,6 +615,7 @@ document.addEventListener('DOMContentLoaded',()=>{$('gasUrl').value=gasUrl();ren
       if(typeof $ === 'function' && $('syncDot')) $('syncDot').className='inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1';
 
       renderAll();
+      if(typeof loadCloudTeacherPhoto === 'function') await loadCloudTeacherPhoto();
       if(typeof toast === 'function') toast('Data cloud berhasil dimuat. Perangkat ini menggunakan Spreadsheet sebagai sumber data utama.');
     } catch(err){
       console.warn('[V4 Cloud First]', err);
