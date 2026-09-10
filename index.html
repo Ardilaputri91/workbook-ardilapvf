@@ -45,7 +45,28 @@ table{min-width:100%;border-collapse:collapse}th{white-space:nowrap;text-align:l
 @media print{.no-print{display:none!important}.view{display:none!important}.view.active{display:block}.print-area{display:block!important}}
 </style>
 </head>
-<body class="min-h-full">
+<body class="min-h-full">\n<!-- V4.3 LOGIN SCREEN -->
+<div id="twLoginScreen" class="fixed inset-0 z-[9999] bg-[#0f172a] flex items-center justify-center p-4">
+  <div class="absolute inset-0 overflow-hidden pointer-events-none"><div class="absolute -top-32 -right-20 w-96 h-96 rounded-full bg-blue-500/10 blur-3xl"></div><div class="absolute -bottom-32 -left-20 w-96 h-96 rounded-full bg-violet-500/10 blur-3xl"></div></div>
+  <div class="relative w-full max-w-md rounded-[28px] bg-white shadow-2xl overflow-hidden">
+    <div class="p-7 bg-gradient-to-br from-[#17233d] via-[#243b68] to-[#4d3e96] text-white">
+      <div class="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-2xl mb-5"><i class="fa-solid fa-book-open-reader"></i></div>
+      <div class="text-[10px] tracking-[.22em] text-blue-200 font-extrabold uppercase">Private Teacher Workspace</div>
+      <h1 class="font-display text-2xl font-extrabold mt-2">Teacher Workbook <span class="text-blue-300">V4</span></h1>
+      <p class="text-xs text-slate-300 mt-2">Silakan login untuk mengakses data workbook Anda.</p>
+    </div>
+    <form id="twLoginForm" class="p-7 space-y-4" onsubmit="return teacherLogin(event)">
+      <div><label class="text-xs font-bold text-slate-600">Web App URL</label><input id="twGasUrl" type="url" class="input mt-1 text-[11px]" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="url"></div>
+      <div><label class="text-xs font-bold text-slate-600">Username</label><input id="twLoginUsername" autocomplete="username" class="input mt-1" placeholder="Username" required></div>
+      <div><label class="text-xs font-bold text-slate-600">Password</label><div class="relative"><input id="twLoginPassword" type="password" autocomplete="current-password" class="input mt-1 pr-11" placeholder="Password" required><button type="button" class="absolute right-2 top-2.5 w-8 h-8 text-slate-400" onclick="toggleLoginPassword()"><i id="twEyeIcon" class="fa-solid fa-eye"></i></button></div></div>
+      <label class="flex items-center gap-2 text-xs text-slate-500"><input id="twRemember" type="checkbox" class="rounded"> Ingat perangkat ini selama 30 hari</label>
+      <button id="twLoginBtn" class="btn btn-primary w-full justify-center py-3" type="submit"><i class="fa-solid fa-right-to-bracket"></i>Masuk ke Workbook</button>
+      <div id="twLoginStatus" class="hidden rounded-xl p-3 text-xs"></div>
+      <p class="text-[10px] text-center text-slate-400">Akses dilindungi oleh Google Apps Script + session token.</p>
+    </form>
+  </div>
+</div>
+
 <div id="app" class="min-h-screen">
 <header class="fixed top-0 inset-x-0 h-[70px] z-80 bg-[#17233d] text-white shadow-lg no-print">
   <div class="h-full max-w-[1600px] mx-auto px-4 lg:px-6 flex items-center gap-3">
@@ -56,7 +77,7 @@ table{min-width:100%;border-collapse:collapse}th{white-space:nowrap;text-align:l
       <div class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[11px]"><i class="fa-regular fa-calendar mr-1 text-blue-300"></i><span id="headerAcademic">2026/2027 • Ganjil</span></div>
       <button class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[11px]" onclick="go('sync')"><span id="syncDot" class="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1"></span><span id="syncText">Lokal</span></button>
     </div>
-    <button class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/15" onclick="go('settings')" title="Pengaturan"><i class="fa-solid fa-gear"></i></button>
+    <button id="twLogoutBtn" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/15 hidden" onclick="teacherLogout()" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></button><button class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/15" onclick="go('settings')" title="Pengaturan"><i class="fa-solid fa-gear"></i></button>
   </div>
 </header>
 
@@ -496,8 +517,8 @@ function renderRemedial(){$('remedialBody').innerHTML=db.remedials.map(r=>`<tr><
 async function saveRemedial(){db.remedials.push({id:uid('RMD'),studentId:$('rmStudent').value,assessmentId:$('rmAssessment').value,nilaiAwal:+$('rmBefore').value||0,nilaiRemedial:+$('rmAfter').value||0,catatan:$('rmNote').value,createdAt:now(),updatedAt:now()});saveLocal();closeModal();toast('Catatan remedial disimpan.');if(gasUrl())await pushAll(false);renderRemedial()}
 function gasUrl(){return localStorage.getItem(KEY)||$('gasUrl')?.value?.trim()||''}
 function saveGasUrl(){const u=$('gasUrl').value.trim();if(!u)return toast('Masukkan URL Web App.','err');localStorage.setItem(KEY,u);$('syncText').textContent='Terhubung';$('syncDot').className='inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1';toast('URL Web App disimpan.');testConnection()}
-async function apiGet(action,params={}){const u=gasUrl();if(!u)throw Error('Web App URL belum diatur.');const q=new URLSearchParams({action,...params,t:Date.now()});const r=await fetch(u+'?'+q.toString(),{method:'GET',cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);return r.json()}
-async function apiPost(action,data){const u=gasUrl();if(!u)throw Error('Web App URL belum diatur.');const r=await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,data}),redirect:'follow'});if(!r.ok)throw Error('HTTP '+r.status);return r.json()}
+async function apiGet(action,params={}){const u=gasUrl();if(!u)throw Error('Web App URL belum diatur.');const token=localStorage.getItem('TW_V4_SESSION_TOKEN')||'';const q=new URLSearchParams({action,...params,t:Date.now()});if(token)q.set('token',token);const r=await fetch(u+'?'+q.toString(),{method:'GET',cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const out=await r.json();if(out&&out.code&&String(out.code).startsWith('AUTH_')){window.dispatchEvent(new CustomEvent('tw-auth-expired',{detail:out}));}return out}
+async function apiPost(action,data){const u=gasUrl();if(!u)throw Error('Web App URL belum diatur.');const token=localStorage.getItem('TW_V4_SESSION_TOKEN')||'';const bodyData=Object.assign({},data||{});const r=await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,data:bodyData,token}),redirect:'follow'});if(!r.ok)throw Error('HTTP '+r.status);const out=await r.json();if(out&&out.code&&String(out.code).startsWith('AUTH_')){window.dispatchEvent(new CustomEvent('tw-auth-expired',{detail:out}));}return out}
 async function testConnection(){try{const r=await apiGet('ping');if(r.status==='success'){toast('Koneksi Google Apps Script berhasil.');$('syncInfo').innerHTML='<span class="text-emerald-700 font-bold"><i class="fa-solid fa-circle-check mr-1"></i>Koneksi berhasil.</span>';$('syncText').textContent='Online';$('syncDot').className='inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1'}}catch(e){$('syncInfo').innerHTML='<span class="text-rose-700 font-bold">Koneksi gagal: '+esc(e.message)+'</span>';toast('Koneksi gagal. Periksa URL dan deployment Web App.','err')}}
 async function pullData(show=true){try{const r=await apiGet('getAllData');if(r.status!=='success')throw Error(r.message||'Gagal mengambil data');db={...structuredClone(emptyDB),...r.data};saveLocal();$('syncText').textContent='Online';$('syncDot').className='inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1';if(show)toast('Data Spreadsheet berhasil dimuat.');renderAll()}catch(e){toast('Gagal mengambil data: '+e.message,'err');throw e}}
 async function pushAll(show=false){if(!gasUrl())return true;try{const payload={};Object.entries(mapEntity).forEach(([k,entity])=>payload[entity]=db[k]||[]);const r=await apiPost('saveAllData',payload);if(r.status!=='success')throw Error(r.message||'Gagal menyimpan');$('syncText').textContent='Online';$('syncDot').className='inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1';if(show)toast('Data berhasil disinkronkan ke Spreadsheet.');return true}catch(e){$('syncText').textContent='Lokal';$('syncDot').className='inline-block w-2 h-2 rounded-full bg-amber-400 mr-1';if(show)toast('Data lokal tersimpan, tetapi sync gagal: '+e.message,'err');return false}}
@@ -568,7 +589,7 @@ async function saveTeacher(){const old=db.teacherData[0]||{};const avatar=$('tFo
 function exportAttendance(){const cid=$('attClass').value,sts=enrolledStudents(cid),meetings=db.meetings.filter(m=>m.classId===cid),rows=sts.map(x=>{const r={'No Absen':x.e.noAbsen,'Nama Siswa':x.s.nama};meetings.forEach(m=>r[m.date||m.id]=db.attendance.find(a=>a.meetingId===m.id&&a.studentId===x.s.id)?.status||'');return r});downloadCSV(rows,'TeacherWorkbook_V4_Presensi.csv')}
 function loadDemoData(){if(!confirm('Muat data demo dan mengganti data lokal saat ini?'))return;const ay={id:'AY_DEMO',tahunAjaran:'2026/2027',semester:'Ganjil',status:'Aktif'};db=structuredClone(emptyDB);db.academicYears=[ay];db.teacherData=[{id:'TCH_DEMO',nama:'Nama Guru',mapel:'Bahasa Inggris',sekolah:'SMAN 1 Sumbermanjing'}];db.classes=[{id:'CLS_XI4',nama:'XI-4',tingkat:'XI',waliKelas:'Nama Wali',academicYearId:ay.id,tahunAjaran:ay.tahunAjaran,status:'Aktif'}];['Alya Putri','Bima Pratama','Citra Maharani','Daffa Ramadhan','Eka Lestari','Fajar Nugraha','Gina Amelia','Hafiz Akbar'].forEach((n,i)=>{const id='STU_'+(i+1);db.students.push({id,nama:n,nisn:'000000000'+(i+1),nis:'10'+(i+1),jk:i%2?'L':'P',status:'Aktif'});db.enrollments.push({id:'ENR_'+(i+1),studentId:id,classId:'CLS_XI4',academicYearId:ay.id,tahunAjaran:ay.tahunAjaran,semester:'Ganjil',noAbsen:i+1,status:'Aktif'})});db.assessments=[{id:'ASM_1',nama:'Narrative Project',classId:'CLS_XI4',tanggal:new Date().toISOString().slice(0,10),bobot:100}];saveLocal();toast('Data demo dimuat.');renderAll()}
 function clearLocalData(){if(!confirm('Hapus data lokal browser? Data Spreadsheet tidak ikut terhapus.'))return;db=structuredClone(emptyDB);saveLocal();toast('Data lokal dibersihkan.');renderAll()}
-document.addEventListener('DOMContentLoaded',()=>{$('gasUrl').value=gasUrl();renderAll();if(typeof loadCloudTeacherPhoto==='function' && gasUrl())setTimeout(loadCloudTeacherPhoto,450);if(gasUrl())testConnection()});
+document.addEventListener('DOMContentLoaded',()=>{ $('gasUrl').value=gasUrl(); const hasSession=!!localStorage.getItem('TW_V4_SESSION_TOKEN'); if(hasSession){renderAll();if(typeof loadCloudTeacherPhoto==='function' && gasUrl())setTimeout(loadCloudTeacherPhoto,450);if(gasUrl())testConnection();} });
 </script>
 
 
@@ -631,7 +652,7 @@ document.addEventListener('DOMContentLoaded',()=>{$('gasUrl').value=gasUrl();ren
   // Run after the existing app initialization. The existing code may render
   // local cache first, then this patch replaces it with cloud data.
   document.addEventListener('DOMContentLoaded', function(){
-    setTimeout(cloudFirstLoad, 350);
+    if(localStorage.getItem('TW_V4_SESSION_TOKEN')) setTimeout(cloudFirstLoad, 350);
   });
 })();
 </script>
@@ -654,6 +675,77 @@ document.addEventListener('DOMContentLoaded',()=>{$('gasUrl').value=gasUrl();ren
   }
   window.teacherWorkbookSyncDashboardAvatar=syncDashboardAvatar;
   document.addEventListener('DOMContentLoaded',()=>{setTimeout(syncDashboardAvatar,800);setTimeout(syncDashboardAvatar,1800);});
+})();
+</script>
+\n<script>
+// =========================================================
+// TEACHER WORKBOOK V4.3 — LOGIN & SESSION SECURITY
+// =========================================================
+(function(){
+  const TOKEN_KEY='TW_V4_SESSION_TOKEN', USER_KEY='TW_V4_SESSION_USER', EXP_KEY='TW_V4_SESSION_EXPIRES';
+  const IDLE_KEY='TW_V4_IDLE_MINUTES';
+  let idleTimer=null, authBusy=false;
+  window.twAuth={TOKEN_KEY,USER_KEY,EXP_KEY};
+  function token(){return localStorage.getItem(TOKEN_KEY)||'';}
+  function setStatus(msg,type='err'){
+    const el=document.getElementById('twLoginStatus'); if(!el)return;
+    el.className='rounded-xl p-3 text-xs '+(type==='ok'?'bg-emerald-50 text-emerald-700':'bg-rose-50 text-rose-700'); el.textContent=msg; el.classList.remove('hidden');
+  }
+  function showLogin(msg=''){
+    const s=document.getElementById('twLoginScreen'); if(s)s.classList.remove('hidden');
+    document.getElementById('app')?.classList.add('hidden');
+    document.getElementById('twLogoutBtn')?.classList.add('hidden');
+    if(msg)setStatus(msg,'err');
+    setTimeout(()=>document.getElementById('twLoginUsername')?.focus(),50);
+  }
+  function showApp(){
+    document.getElementById('twLoginScreen')?.classList.add('hidden');
+    document.getElementById('app')?.classList.remove('hidden');
+    document.getElementById('twLogoutBtn')?.classList.remove('hidden');
+    startIdleTimer();
+  }
+  function saveSession(r){localStorage.setItem(TOKEN_KEY,r.token);localStorage.setItem(USER_KEY,JSON.stringify(r.user||{}));localStorage.setItem(EXP_KEY,r.expiresAt||'');}
+  function clearSession(){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(USER_KEY);localStorage.removeItem(EXP_KEY);}
+  function currentUser(){try{return JSON.parse(localStorage.getItem(USER_KEY)||'null')}catch(e){return null}}
+  function resetIdle(){clearTimeout(idleTimer); if(!token())return; const mins=Math.max(5,parseInt(localStorage.getItem(IDLE_KEY)||'30',10)); idleTimer=setTimeout(()=>{teacherLogout(true)},mins*60000);}
+  function startIdleTimer(){['click','keydown','mousemove','scroll','touchstart'].forEach(ev=>window.addEventListener(ev,resetIdle,{passive:true}));resetIdle();}
+  window.toggleLoginPassword=function(){const i=document.getElementById('twLoginPassword'),ic=document.getElementById('twEyeIcon');if(!i)return;i.type=i.type==='password'?'text':'password';if(ic)ic.className=i.type==='password'?'fa-solid fa-eye':'fa-solid fa-eye-slash';};
+  window.teacherLogin=async function(ev){
+    ev.preventDefault(); if(authBusy)return false; authBusy=true;
+    const btn=document.getElementById('twLoginBtn'); if(btn){btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>Memeriksa...';}
+    const u=document.getElementById('twLoginUsername').value.trim(), p=document.getElementById('twLoginPassword').value, remember=document.getElementById('twRemember').checked;
+    try{
+      const loginUrl=(document.getElementById('twGasUrl')?.value||'').trim();
+      if(loginUrl){localStorage.setItem('TW_V4_GAS_URL',loginUrl.replace(/\/$/,''));}
+      if(!gasUrl())throw new Error('Web App URL belum diatur. Masukkan URL /exec Apps Script pada kolom Web App URL.');
+      const r=await apiPost('login',{username:u,password:p,remember});
+      if(!r||r.status!=='success')throw new Error(r?.message||'Login gagal.');
+      saveSession(r); setStatus('Login berhasil. Memuat database cloud...','ok');
+      showApp();
+      document.getElementById('twLoginPassword').value='';
+      await pullData(false);
+      if(typeof loadCloudTeacherPhoto==='function')await loadCloudTeacherPhoto();
+      if(typeof renderAll==='function')renderAll('dashboard');
+      toast('Selamat datang, '+(r.user?.nama||u)+'.');
+    }catch(e){clearSession();showLogin(e.message||'Login gagal.');}
+    finally{authBusy=false;if(btn){btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-right-to-bracket"></i>Masuk ke Workbook';}}
+    return false;
+  };
+  window.teacherLogout=async function(auto=false){
+    const t=token();
+    try{if(t&&gasUrl())await apiPost('logout',{token:t});}catch(e){}
+    clearSession();clearTimeout(idleTimer);showLogin(auto?'Sesi dikunci karena tidak ada aktivitas. Silakan login kembali.':'Anda telah logout.');
+  };
+  window.addEventListener('tw-auth-expired',()=>{if(token()){clearSession();showLogin('Sesi Anda telah berakhir. Silakan login kembali.');}});
+  window.twRequireAuth=function(){return !!token()};
+  document.addEventListener('DOMContentLoaded',function(){
+    const urlInput=document.getElementById('twGasUrl'); if(urlInput && typeof gasUrl==='function') urlInput.value=gasUrl();
+    const t=token(), exp=localStorage.getItem(EXP_KEY)||'';
+    if(t && exp && new Date(exp).getTime()>Date.now()){showApp();}
+    else{clearSession();showLogin();}
+    // Prevent cloud-first from pushing or exposing local data before login.
+    if(!t || !exp || new Date(exp).getTime()<=Date.now()) return;
+  });
 })();
 </script>
 </body>
