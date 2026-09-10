@@ -502,7 +502,7 @@ async function testConnection(){try{const r=await apiGet('ping');if(r.status==='
 async function pullData(show=true){try{const r=await apiGet('getAllData');if(r.status!=='success')throw Error(r.message||'Gagal mengambil data');db={...structuredClone(emptyDB),...r.data};saveLocal();$('syncText').textContent='Online';$('syncDot').className='inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1';if(show)toast('Data Spreadsheet berhasil dimuat.');renderAll()}catch(e){toast('Gagal mengambil data: '+e.message,'err');throw e}}
 async function pushAll(show=false){if(!gasUrl())return true;try{const payload={};Object.entries(mapEntity).forEach(([k,entity])=>payload[entity]=db[k]||[]);const r=await apiPost('saveAllData',payload);if(r.status!=='success')throw Error(r.message||'Gagal menyimpan');$('syncText').textContent='Online';$('syncDot').className='inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1';if(show)toast('Data berhasil disinkronkan ke Spreadsheet.');return true}catch(e){$('syncText').textContent='Lokal';$('syncDot').className='inline-block w-2 h-2 rounded-full bg-amber-400 mr-1';if(show)toast('Data lokal tersimpan, tetapi sync gagal: '+e.message,'err');return false}}
 async function syncGeneric(entity,data){return pushAll(false)}
-function renderAll(view=currentView){setTeacherUI();const y=activeYear();$('headerAcademic').textContent=(y.tahunAjaran||'—')+' • '+(y.semester||'—');if(view==='dashboard')renderDashboard();if(view==='academic')renderAcademic();if(view==='classes')renderClasses();if(view==='students')renderStudents();if(view==='attendance')renderAttendance();if(view==='journals')renderJournals();if(view==='groups'){populateClassSelect('groupClass',false);onGroupClassChange();renderGroups()}if(view==='assessments')renderAssessments();if(view==='rubrics')renderRubrics();if(view==='scores'){populateClassSelect('scoreClass',false);populateScoreAssessments();renderScores()}if(view==='recap')renderRecap();if(view==='analysis'){populateClassSelect('analysisClass',false);populateAnalysisAssessments();renderAnalysis()}if(view==='remedial')renderRemedial();if(view==='sync')$('gasUrl').value=gasUrl()}
+function renderAll(view=currentView){setTeacherUI();const y=activeYear();$('headerAcademic').textContent=(y.tahunAjaran||'—')+' • '+(y.semester||'—');if(view==='dashboard'){renderDashboard();setTimeout(()=>renderTeacherPhoto(window.__teacherPhotoDataUrl||''),0);}if(view==='academic')renderAcademic();if(view==='classes')renderClasses();if(view==='students')renderStudents();if(view==='attendance')renderAttendance();if(view==='journals')renderJournals();if(view==='groups'){populateClassSelect('groupClass',false);onGroupClassChange();renderGroups()}if(view==='assessments')renderAssessments();if(view==='rubrics')renderRubrics();if(view==='scores'){populateClassSelect('scoreClass',false);populateScoreAssessments();renderScores()}if(view==='recap')renderRecap();if(view==='analysis'){populateClassSelect('analysisClass',false);populateAnalysisAssessments();renderAnalysis()}if(view==='remedial')renderRemedial();if(view==='sync')$('gasUrl').value=gasUrl()}
 function renderTeacherPhoto(dataUrl){
   const t=db.teacherData[0]||{};
   const url=dataUrl||window.__teacherPhotoDataUrl||'';
@@ -556,7 +556,7 @@ async function handleTeacherPhoto(ev){
 function resizeImageToDataUrl(file,maxSize=700,quality=0.82){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{const scale=Math.min(1,maxSize/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',quality))};img.onerror=reject;img.src=reader.result};reader.onerror=reject;reader.readAsDataURL(file)})}
 async function loadCloudTeacherPhoto(){
   const t=db.teacherData[0]||{}; if(!t.foto||!String(t.foto).startsWith('drive:')){renderTeacherPhoto(null);return;}
-  try{const r=await apiGet('getProfilePhoto',{fileId:String(t.foto).replace(/^drive:/,'')});if(r.status==='success'&&r.dataUrl){window.__teacherPhotoDataUrl=r.dataUrl;renderTeacherPhoto(r.dataUrl)}else throw Error(r.message||'Foto tidak ditemukan')}
+  try{const r=await apiGet('getProfilePhoto',{fileId:String(t.foto).replace(/^drive:/,'')});if(r.status==='success'&&r.dataUrl){window.__teacherPhotoDataUrl=r.dataUrl;renderTeacherPhoto(r.dataUrl);if(typeof renderDashboard==='function'&&currentView==='dashboard')setTimeout(()=>renderTeacherPhoto(r.dataUrl),0)}else throw Error(r.message||'Foto tidak ditemukan')}
   catch(e){console.warn('[Profile Photo]',e);renderTeacherPhoto(null);if($('teacherPhotoStatus'))$('teacherPhotoStatus').textContent='Foto cloud belum dapat dimuat.'}
 }
 async function removeTeacherPhoto(){
@@ -637,5 +637,24 @@ document.addEventListener('DOMContentLoaded',()=>{$('gasUrl').value=gasUrl();ren
 </script>
 <!-- END CLOUD-FIRST SYNC PATCH -->
 
+<script>
+// FINAL AVATAR SYNC: keep Dashboard avatar identical to Profile photo.
+(function(){
+  function syncDashboardAvatar(){
+    try{
+      const img=document.getElementById('dashboardTeacherPhoto');
+      const initial=document.getElementById('dashboardTeacherInitial');
+      if(!img||!initial)return;
+      const t=(window.db&&db.teacherData&&db.teacherData[0])||{};
+      const url=window.__teacherPhotoDataUrl||'';
+      const initials=(String(t.nama||'AP').trim().split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('')||'AP').toUpperCase();
+      if(url){img.src=url;img.classList.remove('hidden');initial.classList.add('hidden');}
+      else{img.removeAttribute('src');img.classList.add('hidden');initial.classList.remove('hidden');initial.textContent=initials;}
+    }catch(e){console.warn('[Dashboard Avatar]',e)}
+  }
+  window.teacherWorkbookSyncDashboardAvatar=syncDashboardAvatar;
+  document.addEventListener('DOMContentLoaded',()=>{setTimeout(syncDashboardAvatar,800);setTimeout(syncDashboardAvatar,1800);});
+})();
+</script>
 </body>
 </html>
