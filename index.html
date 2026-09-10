@@ -3190,12 +3190,15 @@ function doPost(e) {
 
 // Memastikan objek db & db.settings selalu ada agar tidak error
 function ensureDbSettings() {
-  if (typeof db === 'undefined') {
-    window.db = { settings: {} };
+  if (typeof db === 'undefined' || db === null) {
+    window.db = {};
   }
-  if (!window.db.settings) {
-    window.db.settings = {};
+  if (!db.settings) {
+    db.settings = {
+      scriptUrl: ''
+    };
   }
+  return db.settings;
 }
 
 function loadSyncSettings() {
