@@ -498,35 +498,68 @@ function createDefaultGroupActivity(cid){
   if(!cid)return;const a=ensureGroupActivity(cid);saveLocal();const el=$('groupActivity');el.innerHTML=groupActivities(cid).map(x=>`<option value="${x.id}">${esc(x.nama)}</option>`).join('');el.value=a.id;
 }
 function openAssessmentModal(id=''){
-  const a=id?db.assessments.find(x=>x.id===id):{};
-  const acts=currentGroupActivities(a.classId||'');
-  openModal(id?'Edit Asesmen':'Buat Asesmen',`<div class="grid md:grid-cols-2 gap-4">
-    <div><label class="label">Nama Asesmen *</label><input id="aNama" class="input" value="${esc(a.nama||'')}"></div>
-    <div><label class="label">Kelas</label><select id="aClass" class="select" onchange="refreshAssessmentActivities()">${classes().map(c=>`<option value="${c.id}" ${a.classId===c.id?'selected':''}>${esc(c.nama)}</option>`).join('')}</select></div>
-    <div><label class="label">Tanggal</label><input id="aDate" type="date" class="input" value="${esc(a.tanggal||a.date||new Date().toISOString().slice(0,10))}"></div>
-    <div><label class="label">Bobot</label><input id="aWeight" type="number" min="0" max="100" class="input" value="${esc(a.bobot||a.weight||100)}"></div>
-    <div><label class="label">Aktivitas Kelompok (opsional)</label><select id="aGroupActivity" class="select"><option value="">Tidak terkait aktivitas kelompok</option>${acts.map(x=>`<option value="${x.id}" ${a.groupActivityId===x.id?'selected':''}>${esc(x.nama)}</option>`).join('')}</select></div>
-    <div><label class="label">Rubrik</label><select id="aRubric" class="select"><option value="">Tanpa Rubrik</option>${db.rubrics.map(r=>`<option value="${r.id}" ${a.rubricId===r.id?'selected':''}>${esc(r.nama||r.name)}</option>`).join('')}</select></div>
-  </div>`,`<button class="btn btn-white" onclick="closeModal()">Batal</button><button class="btn btn-primary" onclick="saveAssessment('${id}')">Simpan Asesmen</button>`);
+  try{
+    const a=id?db.assessments.find(x=>x.id===id):{};
+    if(id&&!a)return toast('Asesmen tidak ditemukan.','err');
+    const clsList=classes();
+    if(!clsList.length)return toast('Buat minimal satu kelas aktif terlebih dahulu.','err');
+    const selectedClass=a.classId||clsList[0].id;
+    const acts=groupActivities(selectedClass);
+    openModal(id?'Edit Asesmen':'Buat Asesmen',`<div class="grid md:grid-cols-2 gap-4">
+      <div class="md:col-span-2"><label class="label">Nama Asesmen *</label><input id="aNama" class="input" value="${esc(a.nama||'')}" placeholder="Contoh: Sumatif Descriptive Text"></div>
+      <div><label class="label">Kelas *</label><select id="aClass" class="select" onchange="refreshAssessmentActivities()">${clsList.map(c=>`<option value="${c.id}" ${selectedClass===c.id?'selected':''}>${esc(c.nama)}</option>`).join('')}</select></div>
+      <div><label class="label">Tanggal</label><input id="aDate" type="date" class="input" value="${esc(a.tanggal||a.date||new Date().toISOString().slice(0,10))}"></div>
+      <div><label class="label">Bobot (%)</label><input id="aWeight" type="number" min="0" max="100" step="1" class="input" value="${esc(a.bobot??a.weight??100)}"></div>
+      <div><label class="label">Rubrik</label><select id="aRubric" class="select"><option value="">Tanpa Rubrik</option>${db.rubrics.map(r=>`<option value="${r.id}" ${a.rubricId===r.id?'selected':''}>${esc(r.nama||r.name)}</option>`).join('')}</select></div>
+      <div class="md:col-span-2"><label class="label">Aktivitas Kelompok <span class="text-slate-400 font-normal">(opsional)</span></label><select id="aGroupActivity" class="select"><option value="">Tidak terkait aktivitas kelompok</option>${acts.map(x=>`<option value="${x.id}" ${a.groupActivityId===x.id?'selected':''}>${esc(x.nama)}</option>`).join('')}</select></div>
+    </div>`,`<button class="btn btn-white" onclick="closeModal()">Batal</button><button class="btn btn-primary" onclick="saveAssessment('${id}')"><i class="fa-solid fa-check mr-2"></i>${id?'Simpan Perubahan':'Simpan Asesmen'}</button>`);
+  }catch(err){console.error('openAssessmentModal',err);toast('Form asesmen gagal dibuka. Periksa data kelas dan aktivitas.','err');}
 }
 function refreshAssessmentActivities(){
-  const el=$('aGroupActivity'),cid=$('aClass').value,old=el.value;
-  el.innerHTML='<option value="">Tidak terkait aktivitas kelompok</option>'+currentGroupActivities(cid).map(x=>`<option value="${x.id}">${esc(x.nama)}</option>`).join('');
+  const el=$('aGroupActivity');
+  if(!el)return;
+  const cid=$('aClass')?.value||'',old=el.value;
+  const acts=groupActivities(cid);
+  el.innerHTML='<option value="">Tidak terkait aktivitas kelompok</option>'+acts.map(x=>`<option value="${x.id}">${esc(x.nama)}</option>`).join('');
   if([...el.options].some(o=>o.value===old))el.value=old;
 }
 function renderAssessments(){
-  $('assessmentsBody').innerHTML=db.assessments.map(a=>`<tr>
-    <td class="font-bold">${esc(a.nama)}</td><td>${esc(cls(a.classId).nama||'')}</td><td>${esc(a.tanggal||a.date||'')}</td>
-    <td>${esc(a.bobot||a.weight||100)}</td><td>${esc(db.rubrics.find(r=>r.id===a.rubricId)?.nama||'—')}</td>
-    <td>${esc(currentGroupActivities(a.classId).find(x=>x.id===a.groupActivityId)?.nama||'—')}</td>
-    <td><button class="btn btn-white !p-2" onclick="openAssessmentModal('${a.id}')"><i class="fa-solid fa-pen"></i></button></td>
-  </tr>`).join('')||`<tr><td colspan="7" class="empty">Belum ada asesmen.</td></tr>`;
+  const body=$('assessmentsBody');
+  if(!body)return;
+  const arr=[...(db.assessments||[])].sort((a,b)=>String(b.tanggal||b.date||b.updatedAt||'').localeCompare(String(a.tanggal||a.date||a.updatedAt||'')));
+  body.innerHTML=arr.map(a=>`<tr>
+    <td class="font-bold">${esc(a.nama)}</td><td>${esc(cls(a.classId).nama||'—')}</td><td>${esc(a.tanggal||a.date||'—')}</td>
+    <td>${esc(a.bobot??a.weight??100)}</td><td>${esc(db.rubrics.find(r=>r.id===a.rubricId)?.nama||'—')}</td>
+    <td>${esc(groupActivities(a.classId).find(x=>x.id===a.groupActivityId)?.nama||'—')}</td>
+    <td><div class="flex gap-1"><button class="btn btn-white !p-2" title="Edit" onclick="openAssessmentModal('${a.id}')"><i class="fa-solid fa-pen"></i></button><button class="btn btn-danger !p-2" title="Hapus" onclick="deleteAssessment('${a.id}')"><i class="fa-solid fa-trash"></i></button></div></td>
+  </tr>`).join('')||`<tr><td colspan="7" class="empty">Belum ada asesmen. Klik <b>Buat Asesmen</b> untuk menambahkan.</td></tr>`;
 }
 async function saveAssessment(id){
-  const d={id:id||uid('ASM'),nama:$('aNama').value.trim(),classId:$('aClass').value,tanggal:$('aDate').value,bobot:+$('aWeight').value||100,rubricId:$('aRubric').value,groupActivityId:$('aGroupActivity').value,updatedAt:now()};
-  if(!d.nama)return toast('Nama asesmen wajib diisi.','err');
-  if(id)db.assessments=db.assessments.map(x=>x.id===id?{...x,...d}:x);else db.assessments.push({...d,createdAt:now()});
-  saveLocal();closeModal();toast('Asesmen disimpan.');if(gasUrl())await pushAll(false);renderAssessments();
+  try{
+    const nama=$('aNama')?.value.trim()||'',classId=$('aClass')?.value||'',tanggal=$('aDate')?.value||'',weightRaw=$('aWeight')?.value;
+    if(!nama)return toast('Nama asesmen wajib diisi.','err');
+    if(!classId)return toast('Kelas wajib dipilih.','err');
+    const bobot=weightRaw===''||weightRaw==null?100:Number(weightRaw);
+    if(!Number.isFinite(bobot)||bobot<0||bobot>100)return toast('Bobot harus antara 0–100.','err');
+    const d={id:id||uid('ASM'),nama,classId,tanggal,bobot,rubricId:$('aRubric')?.value||'',groupActivityId:$('aGroupActivity')?.value||'',updatedAt:now()};
+    if(id){
+      const old=db.assessments.find(x=>x.id===id);
+      if(!old)return toast('Asesmen tidak ditemukan.','err');
+      db.assessments=db.assessments.map(x=>x.id===id?{...x,...d}:x);
+    }else db.assessments.push({...d,createdAt:now()});
+    saveLocal();closeModal();renderAssessments();toast(id?'Asesmen diperbarui.':'Asesmen berhasil dibuat.');
+    if(gasUrl())await pushAll(false);
+  }catch(err){console.error('saveAssessment',err);toast('Asesmen gagal disimpan. Data lokal tetap dipertahankan.','err');}
+}
+async function deleteAssessment(id){
+  const a=db.assessments.find(x=>x.id===id);
+  if(!a)return toast('Asesmen tidak ditemukan.','err');
+  if(!confirm(`Hapus asesmen “${a.nama}”?\n\nNilai siswa dan catatan remedial yang terkait juga akan dihapus.`))return;
+  db.assessments=db.assessments.filter(x=>x.id!==id);
+  db.scores=(db.scores||[]).filter(x=>x.assessmentId!==id);
+  db.remedials=(db.remedials||[]).filter(x=>x.assessmentId!==id);
+  saveLocal();renderAssessments();toast('Asesmen dihapus.');
+  if(gasUrl())await pushAll(false);
 }
 function openRubricModal(id=''){const r=id?db.rubrics.find(x=>x.id===id):{};openModal(id?'Edit Rubrik':'Rubrik Baru',`<div><label class="label">Nama Rubrik</label><input id="rNama" class="input" value="${esc(r.nama||'')}"></div><div class="mt-4"><label class="label">Deskripsi</label><textarea id="rDesc" class="textarea" rows="3">${esc(r.deskripsi||'')}</textarea></div>`,`<button class="btn btn-white" onclick="closeModal()">Batal</button><button class="btn btn-primary" onclick="saveRubric('${id}')">Simpan</button>`)}
 function renderRubrics(){$('rubricsBody').innerHTML=db.rubrics.map(r=>{const aspects=db.rubricAspects.filter(a=>a.rubricId===r.id);return `<div class="card p-5"><div class="flex items-start justify-between gap-3"><div><h3 class="font-display font-extrabold text-sm">${esc(r.nama)}</h3><p class="text-xs text-slate-400 mt-1">${esc(r.deskripsi||'')}</p></div><div class="flex gap-1"><button class="btn btn-white !p-2" onclick="openRubricModal('${r.id}')"><i class="fa-solid fa-pen"></i></button><button class="btn btn-danger !p-2" onclick="deleteRubric('${r.id}')"><i class="fa-solid fa-trash"></i></button></div></div><div class="mt-4 grid md:grid-cols-2 gap-2">${aspects.map(a=>`<div class="p-3 rounded-xl bg-slate-50 border border-slate-100"><div class="font-bold text-xs">${esc(a.nama||a.name)}</div><div class="text-[10px] text-slate-400 mt-1">Bobot: ${esc(a.bobot||a.weight||0)}%</div></div>`).join('')||'<div class="text-xs text-slate-400">Belum ada aspek.</div>'}</div><button class="btn btn-soft mt-4" onclick="addAspect('${r.id}')"><i class="fa-solid fa-plus"></i>Tambah Aspek</button></div>`}).join('')||`<div class="card empty">Belum ada rubrik.</div>`}
